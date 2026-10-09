@@ -28,6 +28,7 @@ def main():
     parser.add_argument("--release-dir", type=Path, default=ROOT / "dist")
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--inspect-url", action="append", default=[], help="Additional real metadata regression URLs")
+    parser.add_argument("--allow-verification", action="store_true", help="Accept a correctly reported YouTube verification restriction for additional URLs")
     args = parser.parse_args()
     release = args.release_dir.resolve()
     test_root = ROOT / ".tmp" / f"release-smoke-{uuid.uuid4().hex}"
@@ -64,13 +65,14 @@ def main():
             incoming.put({"error": str(error)})
     threading.Thread(target=read, daemon=True).start()
     writer = Writer(process.stdin)
-    def command(action, **values):
+    def command(action, allow_error=False, **values):
         request_id = uuid.uuid4().hex
         writer.send({"id": request_id, "action": action, **values})
         deadline = time.monotonic() + (110 if action == "inspect" else 40)
         while time.monotonic() < deadline:
             response = incoming.get(timeout=max(0.1, deadline - time.monotonic()))
             if response.get("id") == request_id:
+                if not response["ok"] and allow_error: return response
                 assert response["ok"], response
                 return response["result"]
         raise TimeoutError("Frozen native application did not respond")
@@ -80,10 +82,22 @@ def main():
         assert hello["connection"]["state"] == "Connected"
         command("configure", output_dir=str(output))
         report["native_connection"] = True
+        synthetic = {"domain": ".youtube.com", "name": "SaveIt4UTest", "value": "synthetic-session-fixture", "path": "/", "secure": True, "httpOnly": True, "hostOnly": False}
+        assert command("youtube_session", cookies=[synthetic])["active"]
+        snapshot = command("hello")
+        assert snapshot["youtube_session"]["active"] and synthetic["value"] not in json.dumps(snapshot)
+        assert not command("clear_youtube_session")["active"]
+        assert synthetic["value"] not in (profile / "state.json").read_text(encoding="utf-8")
+        report["native_session_share_forget"] = "synthetic fixture only; no browser credentials accessed"
         if args.inspect_url:
             inspections = []
             for url in args.inspect_url:
-                metadata = command("inspect", url=url)
+                metadata = command("inspect", url=url, allow_error=args.allow_verification)
+                if metadata.get("ok") is False:
+                    assert "YouTube verification required" in metadata["error"], metadata
+                    assert "\x1b" not in metadata["error"] and "--cookies" not in metadata["error"], metadata
+                    inspections.append({"url": url, "verification_required": True, "error": metadata["error"]})
+                    continue
                 assert metadata["qualities"], metadata
                 inspections.append({"id": metadata["id"], "title": metadata["title"], "caption_languages": len(metadata["captions"]), "qualities": len(metadata["qualities"])})
             report["additional_inspections"] = inspections

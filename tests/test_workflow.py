@@ -280,7 +280,7 @@ class BrokerTests(unittest.TestCase):
         request("detach", directory=self.directory, start=False, client_id="chrome", origin=origin)
         self.assertEqual(request("snapshot", directory=self.directory, start=False)["connection"]["extension_count"], 1)
         restored = request("attach", directory=self.directory, start=False, client_id="chrome-new", origin=origin)
-        self.assertEqual(restored["output_dir"], str(self.directory / "downloads"))
+        self.assertEqual(Path(restored["output_dir"]).resolve(), (self.directory / "downloads").resolve())
         self.assertEqual(restored["connection"]["extension_count"], 2)
 
     def test_untrusted_origin_and_bad_ipc_secret_are_rejected(self):

@@ -20,6 +20,8 @@ test("MV3 extension has local scripts, narrow permissions and existing icons", a
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual(manifest.permissions, ["nativeMessaging", "activeTab", "storage", "contextMenus", "alarms"]);
   assert.equal(manifest.host_permissions, undefined);
+  assert.deepEqual(manifest.optional_permissions, ["cookies"]);
+  assert.deepEqual(manifest.optional_host_permissions, ["https://*.youtube.com/*"]);
   for (const path of Object.values(manifest.icons)) assert.ok((await readFile(new URL(`../extension/${path}`, import.meta.url))).length > 0);
   for (const path of ["app.js", "content.js", "background.js"]) {
     const source = await readFile(new URL(`../extension/${path}`, import.meta.url), "utf8");
@@ -53,6 +55,11 @@ test("native bridge authenticates senders, correlates replies and surfaces disco
   const page = { id, url: `chrome-extension://${id}/app.html`, tab: { id: 123 } };
   const content = { id, url: canonical, tab: { id: 456 }, frameId: 0 };
   assert.equal(receive({ action: "configure" }, content, () => assert.fail("Content script accessed filesystem settings")), false);
+  assert.equal(receive({ action: "share_youtube_session", consent: true }, content, () => assert.fail("Content script accessed session sharing")), false);
+  assert.equal(receive({ action: "youtube_session", cookies: [] }, page, () => assert.fail("Page supplied arbitrary cookies")), false);
+  const noConsent = await new Promise(resolve => receive({ action: "share_youtube_session" }, page, resolve));
+  assert.equal(noConsent.ok, false);
+  assert.match(noConsent.error, /Confirm sharing/);
   assert.equal(receive({ action: "hello" }, { ...page, id: "another-extension" }, () => assert.fail()), false);
   const response = new Promise(resolve => assert.equal(receive({ action: "hello" }, page, resolve), true));
   assert.equal(sent.length, 1);

@@ -1,4 +1,5 @@
 import { youtubeUrl } from "./url.js";
+import { SESSION_PERMISSIONS, userError } from "./session.js";
 
 const $ = id => document.getElementById(id);
 const query = new URLSearchParams(location.search);
@@ -15,6 +16,8 @@ const jobs = new Map();
 const cards = new Map();
 
 function notice(message, error = false) {
+  if (error) message = userError(message);
+  if (error && /YouTube verification required/.test(message)) $("youtube-auth").open = true;
   $("notice").textContent = message;
   $("notice").classList.toggle("error", error);
   $("notice").hidden = !message;
@@ -171,11 +174,12 @@ function renderJob(job) {
   card.detail.textContent = job.status === "complete" ? `${type} · ${job.files.length} files saved · ${job.files.join(", ")}` : `${type} · ${bytes(job.downloaded)}${job.total ? ` / ${job.total_estimated ? "~" : ""}${bytes(job.total)}` : " / estimating size"}`;
   card.warning.textContent = job.warning || "";
   card.warning.hidden = !job.warning;
-  card.error.textContent = job.error || "";
+  card.error.textContent = job.error ? userError(job.error) : "";
   card.error.hidden = !job.error;
   if (card.lastStatus !== job.status) {
     card.actions.replaceChildren();
     const actions = [];
+    if (job.status === "failed" && /YouTube verification required/.test(userError(job.error))) actions.push(["youtube_auth", "YouTube sign-in"]);
     if (["queued", "downloading", "merging", "processing"].includes(job.status)) actions.push(["pause", "Pause"]);
     if (["paused", "failed"].includes(job.status)) actions.push(["resume", job.status === "failed" ? "Retry" : "Resume"]);
     if (["queued", "downloading", "merging", "processing", "paused", "failed"].includes(job.status)) actions.push(["cancel", "Cancel"]);
@@ -186,6 +190,13 @@ function renderJob(job) {
       button.addEventListener("click", async () => {
         button.disabled = true;
         try {
+          if (action === "youtube_auth") {
+            $("url").value = job.request.url;
+            panel("download");
+            $("youtube-auth").open = true;
+            $("youtube-auth").scrollIntoView({ block: "nearest" });
+            return;
+          }
           const result = await request(action, { job_id: job.id });
           if (result?.id) renderJob(result);
         } catch (error) { notice(error.message, true); }
@@ -224,12 +235,39 @@ function connectionStatus(value) {
 }
 
 function renderSnapshot(state) {
+  if (state.youtube_session) renderSession(state.youtube_session);
   const ids = new Set(state.jobs.map(job => job.id));
   for (const [id, card] of cards) if (!ids.has(id)) { card.element.remove(); cards.delete(id); jobs.delete(id); }
   for (const job of [...state.jobs].sort((a, b) => a.created - b.created)) renderJob(job);
   $("output-dir").value = state.output_dir;
   updateCount();
 }
+
+function renderSession(value) {
+  $("session-status").textContent = value.message || (value.active ? "YouTube session shared." : "YouTube session not shared.");
+}
+
+// Request the optional browser permission directly inside the click gesture.
+$("share-session").addEventListener("click", async event => {
+  if (!event.isTrusted) return;
+  if (!$("session-consent").checked) { notice("Check the session-sharing consent box first.", true); $("youtube-auth").open = true; return; }
+  const button = $("share-session");
+  button.disabled = true;
+  try {
+    if (!await chrome.permissions.request(SESSION_PERMISSIONS)) throw new Error("YouTube session permission was not granted. Guest access remains available.");
+    renderSession(await request("share_youtube_session", { consent: true }));
+    notice("YouTube session shared with the local app. Retrying video detection…");
+    if ($("url").value) await inspect();
+  } catch (error) { notice(error.message, true); }
+  finally { button.disabled = false; }
+});
+on("clear-session", "click", async () => {
+  renderSession(await request("clear_youtube_session"));
+  await chrome.permissions.remove(SESSION_PERMISSIONS);
+  $("session-consent").checked = false;
+  notice("Shared session forgotten. Existing downloads keep their current request until cancelled.");
+});
+on("open-youtube", "click", () => chrome.tabs.create({ url: $("url").value ? youtubeUrl($("url").value) : "https://www.youtube.com/" }));
 
 function disconnected(message) {
   connectionStatus({ state: "Connection Error", ready: false, message: message + " Reconnecting automatically." });
@@ -300,6 +338,7 @@ if (globalThis.chrome?.runtime?.id) {
   chrome.runtime.onMessage.addListener(message => {
     if (message.source !== "companion") return;
     if (message.event === "job") renderJob(message.job);
+    if (message.event === "youtube_session") renderSession(message.youtube_session);
     if (message.event === "disconnected") disconnected(message.error);
     if (message.event === "connection") connectionStatus(message.connection);
     if (message.event === "network") { network = message.network; renderMonitor(); }

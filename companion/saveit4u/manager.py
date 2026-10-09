@@ -54,8 +54,8 @@ def terminate_tree(process):
         process.wait(timeout=5)
 
 
-def inspect_video(url):
-    process = spawn_worker({"action": "inspect", "url": youtube_url(url)})
+def inspect_video(url, cookies=None):
+    process = spawn_worker({"action": "inspect", "url": youtube_url(url), "cookies": cookies or []})
     with INSPECTION_LOCK:
         INSPECTIONS.add(process)
     try:
@@ -96,6 +96,7 @@ class Manager:
         self.state = self.store.load()
         self.emit = emit
         self.worker_factory = worker_factory
+        self.session_provider = lambda: []
         self.condition = threading.Condition(threading.RLock())
         self.running = None
         self.stopping = False
@@ -220,7 +221,8 @@ class Manager:
                 try:
                     process = self.worker_factory({"action": "download", "request": job["request"],
                                                    "folder": job.get("work_folder", job["folder"]),
-                                                   "output_folder": job["folder"], "job_id": job["id"]})
+                                                   "output_folder": job["folder"], "job_id": job["id"],
+                                                   "cookies": self.session_provider()})
                 except Exception as error:
                     job.update(status="failed", error=str(error)[:2000])
                     self._save()

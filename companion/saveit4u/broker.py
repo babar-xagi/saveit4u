@@ -20,6 +20,8 @@ from .storage import data_directory
 from .runtime import command, subprocess_environment
 from .telemetry import NetworkSampler
 from .validation import youtube_url
+from .session import YouTubeSession
+from .errors import public_error
 
 
 class MetadataCache:
@@ -67,6 +69,8 @@ class Broker:
     def __init__(self, directory=None, manager_factory=Manager, inspect_loader=inspect_video, sampler=None):
         self.directory = Path(directory or data_directory())
         self.manager = manager_factory(lambda event: None, self.directory)
+        self.session = YouTubeSession()
+        self.manager.session_provider = self.session.get
         self.inspect_loader = inspect_loader
         self.cache = MetadataCache()
         self.sampler = sampler or NetworkSampler()
@@ -86,7 +90,8 @@ class Broker:
             connection = {"state": "Connected" if self.clients else "Disconnected", "extension_count": len(self.clients),
                           "message": "Extension connected automatically." if self.clients else "Waiting for the SaveIt4U extension. It will connect automatically."}
             network = dict(self.sampler.value)
-        return {"version": __version__, **self.dependencies, **self.manager.snapshot(), "connection": connection, "network": network}
+        return {"version": __version__, **self.dependencies, **self.manager.snapshot(), "connection": connection, "network": network,
+                "youtube_session": self.session.status()}
 
     def dispatch(self, request):
         if not isinstance(request, dict):
@@ -110,12 +115,19 @@ class Broker:
             return self.snapshot()
         if action in {"hello", "snapshot"}:
             return self.snapshot()
+        if action in {"youtube_session", "clear_youtube_session"}:
+            status = self.session.set(request.get("cookies")) if action == "youtube_session" else self.session.clear()
+            with self.lock:
+                self.cache = MetadataCache()
+            return status
         if action == "inspect":
             url = youtube_url(request.get("url"))
             if not self.inspect_slots.acquire(blocking=False):
                 raise ValueError("Two videos are being inspected. Try again in a moment.")
             try:
-                return self.cache.get(url, self.inspect_loader)
+                cookies = self.session.get()
+                loader = (lambda target: self.inspect_loader(target, cookies=cookies)) if cookies else self.inspect_loader
+                return self.cache.get(url, loader)
             finally:
                 self.inspect_slots.release()
         if action == "enqueue":
@@ -151,7 +163,7 @@ class Broker:
                 try:
                     payload = encode({"ok": True, "result": self.dispatch(message)})
                 except Exception as error:
-                    payload = encode({"ok": False, "error": str(error)[:2000]})
+                    payload = encode({"ok": False, "error": public_error(error)})
                 connection.send_bytes(payload)
         except (OSError, EOFError, ValueError):
             pass

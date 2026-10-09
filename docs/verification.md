@@ -1,5 +1,13 @@
 # Verification — SaveIt4U 0.2, 2026-10-09
 
+## 0.2.2 YouTube session and Windows CI fix
+
+- The failed Windows CI run 37959074328 compared two spellings of the same temporary folder: `RUNNER~1` versus `runneradmin`. The reconnect test now compares resolved paths.
+- **56 Python and 9 JavaScript tests passed locally.** New regressions cover cookie scope and injection rejection, in-memory cookie jars, expiry/forget, cache invalidation, consent/sender authorization, permission denial, and errors without ANSI or CLI instructions.
+- The 0.2.2 Setup EXE installed successfully in a workspace-only profile. With system runtimes removed from PATH, the actual native host exercised synthetic session share/forget, inspected `ARDiDYhDxRc` (13 qualities, 157 caption languages) and `F6oHV3ARAVg` (11 qualities, 157 languages), and downloaded a real video with both audio/video streams plus VTT/SRT/TXT/JSON exports. All final files were flat and warning-free.
+- The browser transport adapter rendered the real extension dashboard against the new EXE. The reported Shorts URL was detected successfully under guest access in this environment. The UI refused sharing without the consent checkbox. Browser permission denial and cookie scope were tested with synthetic API fixtures.
+- Session sharing is an explicit user action with optional YouTube-only permission. No actual account cookies were read by the verification tools. Account access and browser permission prompts still require a real Chrome/Edge acceptance check by the user.
+
 ## 0.2.1 Unicode hotfix
 
 - Reproduced the user's exact Windows frozen-worker error on `F6oHV3ARAVg`: `charmap` could not encode `\u0101` at position 5008 even with `PYTHONIOENCODING=utf-8` set.
@@ -49,6 +57,6 @@ The in-app browser ran the actual extension background, bridge, dashboard and co
 - The desktop EXE launched and exposed its native window. Native screenshot/control inspection was limited by the desktop helper's capture and foreground-window errors, so a complete graphical desktop QA pass is not claimed.
 - Live high-resolution/long downloads and live large-file pause/resume were not manually exercised. Real format selection, aggregate progress and worker pause/resume/update continuation are covered by deterministic tests.
 - The installer is unsigned. Publisher code signing, SmartScreen reputation and store distribution are public-release tasks, not completed checks.
-- CI workflows are present but were not executed remotely in this verification session. Linux/macOS installer UX and Firefox support are not included.
+- Historical 0.2 checks below were local. See the 0.2.2 record for the remote CI repair. Linux/macOS installer UX and Firefox support are not included.
 
 These results describe the tested build and environment. Source quality, network/CDN limits, regional/account restrictions and future YouTube changes can affect individual downloads.

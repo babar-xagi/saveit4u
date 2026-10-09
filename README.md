@@ -1,12 +1,12 @@
-# SaveIt4U 0.2.1
+# SaveIt4U 0.2.2
 
 A Windows desktop downloader and Chrome/Edge extension with automatic pairing, an on-video quality panel and a shared persistent download queue.
 
 ## Install — no commands or extension IDs
 
-1. Open **SaveIt4U-Setup-0.2.1.exe** and click **Install**. Python, FFmpeg/FFprobe, Node, yt-dlp and its YouTube solver are included.
+1. Open **SaveIt4U-Setup-0.2.2.exe** and click **Install**. Python, FFmpeg/FFprobe, Node, yt-dlp and its YouTube solver are included.
 2. Click **Open SaveIt4U**. The desktop dashboard shows whether the extension is connected.
-3. Add the extension. The current private build provides `saveit4u-extension-0.2.1.zip`; extract it and use Chrome/Edge's **Developer mode → Load unpacked**. The desktop app's **Install / locate extension** button opens its included extension folder. There are no terminal commands or ID-copy steps. Browser installation itself requires the user's action.
+3. Add the extension. The current private build provides `saveit4u-extension-0.2.2.zip`; extract it and use Chrome/Edge's **Developer mode → Load unpacked**. The desktop app's **Install / locate extension** button opens its included extension folder. There are no terminal commands or ID-copy steps. Browser installation itself requires the user's action.
 4. App and extension connect automatically, in either installation order. Connection states are **Connected**, **Disconnected**, **Connecting** and **Connection Error**, with automatic retries.
 5. Open a YouTube video or Short. The quality panel appears automatically. Choose a format and optional caption language, then click a quality to start downloading immediately.
 
@@ -36,7 +36,7 @@ See the [Roman Urdu quick-start](docs/quick-start-ur.md).
 - Pause, resume, cancel, retry, folder selection and open-folder controls. Closing a browser port or dashboard does not stop the shared engine. A computer/engine restart restores unfinished jobs; installer updates resume jobs that were active, while preserving user-paused jobs.
 - Native port retries use bounded backoff and a Chrome alarm for worker recovery. A new engine reattaches existing browser bridges. Snapshot recovery restores the queue on reconnect.
 - Metadata requests are coalesced and cached briefly. Media transfers use 1 MB buffers and up to eight concurrent fragments, without an artificial speed limit. Actual speed depends on the connection, YouTube/CDN limits and the transport; ordinary progressive HTTP transfers are not falsely reported as eight-way ranged downloads.
-- Detection failure provides Detect again and a manual YouTube-link fallback. Active live streams, unavailable/authenticated content, DRM bypass, other video websites and speech-to-text generation are outside this release.
+- Detection failure provides Detect again and a manual YouTube-link fallback. Active live streams, unavailable content, DRM bypass, other video websites and speech-to-text generation are outside this release.
 
 ## Automatic pairing and security
 
@@ -53,7 +53,7 @@ flowchart LR
   F --> O[One SaveIt4U output folder]
 ```
 
-Production uses no HTTP control server or TCP listener. Per-user IPC is authenticated with a local random key and exchanges size-limited JSON bytes, never pickle. Browser bridges validate their caller origin. Content scripts may inspect/download only the current top-level YouTube video; filesystem settings and other controls require an extension page. A quality click must be a trusted browser event. Incoming URLs use exact HTTPS YouTube hosts and validated video IDs. There is no generic shell command API, cookie extraction, analytics or cloud upload.
+Production uses no HTTP control server or TCP listener. Per-user IPC is authenticated with a local random key and exchanges size-limited JSON bytes, never pickle. Browser bridges validate their caller origin. Content scripts may inspect/download only the current top-level YouTube video; filesystem settings and other controls require an extension page. A quality click must be a trusted browser event. Incoming URLs use exact HTTPS YouTube hosts and validated video IDs. There is no generic shell command API, analytics or cloud upload. YouTube session sharing is optional, restricted to the extension dashboard, and requires explicit consent plus optional browser permission. Only YouTube cookies are read, then sent by native messaging and authenticated IPC to an in-memory cookie jar. Session values never enter queue files or snapshots. They expire after 20 minutes or engine restart. Forgetting/revoking prevents new use; cancel active transfers to stop existing requests.
 
 The installation payload and individual application files are SHA-256 verified. Installation uses a checked staging directory, rollback and current-user registration. Updates briefly enter maintenance mode so bridges and the GUI release old files and the engine saves continuation state. Same-volume output publication uses atomic, non-overwriting hardlinks; cross-volume/Windows exFAT publication stages a complete file before a non-overwriting move. Completed work files are cleaned up. Cancelled partials remain available in private work storage; clearing queue history retains finished output files.
 
@@ -84,9 +84,9 @@ npm run check
 .venv\Scripts\python.exe scripts\smoke_windows.py --live
 ```
 
-Outputs: `dist/SaveIt4U-Setup-0.2.1.exe`, `dist/SaveIt4U/`, and `dist/saveit4u-extension-0.2.1.zip`. `build_windows.py --output-dir PATH` can create an isolated release while an older build is running. The manual **Windows installer** GitHub Actions workflow builds and checks downloadable artifacts without automatically publishing a release.
+Outputs: `dist/SaveIt4U-Setup-0.2.2.exe`, `dist/SaveIt4U/`, and `dist/saveit4u-extension-0.2.2.zip`. `build_windows.py --output-dir PATH` can create an isolated release while an older build is running. The manual **Windows installer** GitHub Actions workflow builds and checks downloadable artifacts without automatically publishing a release.
 
-0.2.1 fixes Windows frozen-worker `charmap` failures for Unicode titles and caption-language names, including English videos whose caption metadata contains “Māori”. Worker JSON and diagnostics now use explicit UTF-8, independent of the Windows console code page. Existing extension identity and pairing are unchanged; updating the desktop installer is sufficient to receive this fix.
+0.2.1 fixed Windows frozen-worker `charmap` failures for Unicode titles and caption-language names, including English videos whose caption metadata contains “Māori”. Worker JSON and diagnostics now use explicit UTF-8, independent of the Windows console code page. Existing extension identity and pairing are unchanged; updating the desktop installer is sufficient to receive this fix.
 
 `smoke_windows.py` installs into a private workspace test folder with browser registration disabled, strips system Node/Python/FFmpeg from PATH, checks bundled dependencies and exchanges real native frames with the frozen app. `--live` additionally inspects and downloads a short public YouTube fixture, exports captions, and verifies final audio/video streams with the bundled FFprobe.
 
@@ -95,3 +95,7 @@ For interactive integration checks, `scripts/workflow_server.py` is a **developm
 Data: `%LOCALAPPDATA%/SaveIt4U/` on Windows, or `~/.local/share/saveit4u/` for source Unix development. `SAVEIT4U_DATA_DIR` supports isolated test profiles. A developer portable build may use an adjacent `portable-data.json` containing an absolute `data_dir`; this file is not part of a normal release.
 
 See [the verification record](docs/verification.md) for completed checks and their limits.
+
+## YouTube verification in 0.2.2
+
+If YouTube requests sign-in or bot verification, the app shows an actionable message without terminal color codes or command-line instructions. In the extension dashboard expand **YouTube sign-in (optional)**, open the video on YouTube, complete sign-in/verification yourself, tick the consent box and click **Use YouTube sign-in**. Allow the optional permission, then detection retries. Failed queue jobs need **Retry** after sharing. This reads only the regular browser profile's YouTube cookies; no Google or other-site cookies. The shared session stays in memory for up to 20 minutes. **Forget shared session** also removes the optional browser permission. Public requests work without sharing. YouTube can still deny requests, and session access does not bypass verification or guarantee availability. See the [official yt-dlp authentication guidance](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies).

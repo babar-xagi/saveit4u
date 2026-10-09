@@ -11,7 +11,7 @@ from .ipc import request as rpc
 from .ipc import MaintenanceError
 from .protocol import Writer, read_message
 
-ACTIONS = {"hello", "inspect", "enqueue", "pause", "resume", "cancel", "configure", "clear_finished", "open_folder", "open_desktop"}
+ACTIONS = {"hello", "inspect", "enqueue", "pause", "resume", "cancel", "configure", "clear_finished", "open_folder", "open_desktop", "youtube_session", "clear_youtube_session"}
 
 
 def main():
@@ -45,7 +45,7 @@ def main():
             action = message.get("action")
             if action not in ACTIONS:
                 raise ValueError("Unknown companion command.")
-            values = {key: message[key] for key in ("url", "request", "job_id", "output_dir") if key in message}
+            values = {key: message[key] for key in ("url", "request", "job_id", "output_dir", "cookies") if key in message}
             send({"id": message["id"], "ok": True, "result": rpc(action, **values)})
         except Exception as error:
             send({"id": message["id"], "ok": False, "error": str(error)[:2000]})
@@ -56,6 +56,7 @@ def main():
     def monitor():
         previous = {}
         output_dir = None
+        session_status = None
         while not disconnected.is_set():
             try:
                 try:
@@ -65,6 +66,9 @@ def main():
                         return
                     state = rpc("attach", client_id=client_id, origin=origin)
                 send({"event": "network", "network": state["network"]})
+                if state["youtube_session"] != session_status:
+                    session_status = state["youtube_session"]
+                    send({"event": "youtube_session", "youtube_session": session_status})
                 for job in state["jobs"]:
                     if previous.get(job["id"]) != job:
                         send({"event": "job", "job": job})

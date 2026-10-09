@@ -63,6 +63,8 @@ window.chrome = {
     const target = new URL(value.url); location.href = "/__workflow__/app.html" + target.search;
   } },
   storage: { local: { set: async value => localStorage.setItem("saveit4u-workflow", JSON.stringify(value)) } },
+  // The UI harness can exercise denial but never reads real browser credentials.
+  permissions: { request: async () => false, contains: async () => false, remove: async () => true, onRemoved: event() },
   contextMenus: { onClicked: event(), removeAll: callback => callback(), create() {} },
   alarms: { onAlarm: event(), create: (name, options) => setInterval(() => chrome.alarms.onAlarm.fire({ name }), options.periodInMinutes * 60_000) },
 };

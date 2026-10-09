@@ -30,6 +30,16 @@
           <div class="input-row"><input id="url" type="url" placeholder="https://youtube.com/watch?v=…" required autocomplete="off" spellcheck="false"><button id="inspect" class="primary" type="submit">Find video <span aria-hidden="true">→</span></button></div>
           <button id="use-tab" class="text-button" type="button">Use current YouTube tab</button>
         </form>
+        <details id="youtube-auth" class="settings">
+          <summary>YouTube sign-in (optional)</summary>
+          <p class="help">If YouTube asks for verification, open the video in this browser and finish signing in there. Then share its YouTube session with your local SaveIt4U app for up to 20 minutes. Account access can be restricted by YouTube when used with download tools.</p>
+          <p id="session-status" class="help" role="status">YouTube session not shared.</p>
+          <label class="checkbox"><input id="session-consent" type="checkbox"> I allow SaveIt4U to use my YouTube session for downloads on this computer. Cookies stay in memory and are not saved in files.</label>
+          <button id="open-youtube" class="secondary" type="button">Open video on YouTube ↗</button>
+          <button id="share-session" class="primary" type="button">Use YouTube sign-in</button>
+          <button id="clear-session" class="secondary" type="button">Forget shared session</button>
+          <p class="help">Only youtube.com session cookies are shared. Other websites and Google sign-in cookies are excluded. Forgetting stops their use for new requests; cancel an active download to stop its current request.</p>
+        </details>
         <div id="video" class="video-card" hidden>
           <div class="video-heading"><span class="video-mark" aria-hidden="true">▶</span><div><span id="video-channel" class="eyebrow"></span><h2 id="video-title"></h2><p id="video-meta"></p></div></div>
           <form id="download-form">
@@ -62,7 +72,7 @@
         <button id="open-folder" class="text-button">Open download folder ↗</button>
       </section>
     </main>
-    <footer><span><span class="local-dot"></span> Runs on your computer</span><span>SaveIt4U <span class="version">0.2.1</span></span></footer>
+    <footer><span><span class="local-dot"></span> Runs on your computer</span><span>SaveIt4U <span class="version">0.2.2</span></span></footer>
   </div>
 </body>
 </html>

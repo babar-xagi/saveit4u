@@ -15,6 +15,8 @@ from .runtime import install_directory, resource_directory
 from .publication import publish, detach_published_files
 from .telemetry import TransferProgress, format_size
 from .textio import write_utf8
+from .errors import clean_text
+from .session import apply_cookies
 from .validation import download_request, youtube_url
 
 
@@ -67,7 +69,7 @@ class Logger:
         if "specified to use impersonation" in str(message):
             write_utf8(sys.stderr, str(message) + "\n")
             return
-        self.emit({"type": "warning", "message": str(message)[:1000]})
+        self.emit({"type": "warning", "message": clean_text(message)[:1000]})
 
     def error(self, message):
         write_utf8(sys.stderr, str(message) + "\n")
@@ -80,7 +82,8 @@ def base_options(emit):
     options = {"quiet": True, "no_warnings": False, "logger": Logger(emit),
             "noplaylist": True, "socket_timeout": 20, "retries": 3, "fragment_retries": 3,
             "cachedir": False, "js_runtimes": {runtime: {"path": runtime_path}},
-            "remote_components": set(), "windowsfilenames": True, "restrictfilenames": False}
+            "remote_components": set(), "windowsfilenames": True, "restrictfilenames": False,
+            "color": {"stdout": "never", "stderr": "never"}}
     if executable("ffmpeg"):
         options["ffmpeg_location"] = str(Path(executable("ffmpeg")).parent)
     return options
@@ -125,9 +128,10 @@ def summarize(info, downloader=None):
             "qualities": qualities, "is_live": bool(info.get("is_live")), "url": youtube_url(info.get("webpage_url"))}
 
 
-def inspect(url, emit):
+def inspect(url, emit, cookies=None):
     from yt_dlp import YoutubeDL
     with YoutubeDL(base_options(emit)) as ydl:
+        apply_cookies(ydl, cookies)
         info = ydl.extract_info(youtube_url(url), download=False)
         if not info or info.get("_type") in {"playlist", "multi_video"}:
             raise ValueError("Only individual videos are supported.")
@@ -153,7 +157,7 @@ def media_options(request):
             "postprocessors": [{"key": "FFmpegVideoRemuxer", "preferedformat": request["container"]}]}
 
 
-def download(data, folder, emit, output_folder=None, job_id=None):
+def download(data, folder, emit, output_folder=None, job_id=None, cookies=None):
     from yt_dlp import YoutubeDL
     request = download_request(data)
     directory = Path(folder).resolve()
@@ -181,6 +185,7 @@ def download(data, folder, emit, output_folder=None, job_id=None):
     options["progress_hooks"] = [progress]
     options["postprocessor_hooks"] = [lambda item: emit({"type": "progress", "phase": "processing"})]
     with YoutubeDL(options) as ydl:
+        apply_cookies(ydl, cookies)
         info = ydl.extract_info(request["url"], download=False)
         if info.get("is_live") or info.get("live_status") in {"is_live", "is_upcoming"}:
             raise ValueError("Wait until this live stream has finished before downloading.")
@@ -210,6 +215,7 @@ def download(data, folder, emit, output_folder=None, job_id=None):
                                 "subtitleslangs": [language], "subtitlesformat": "vtt"})
         try:
             with YoutubeDL(caption_options) as captions:
+                apply_cookies(captions, cookies)
                 captions.extract_info(request["url"], download=True)
             files = list(directory.glob("*.vtt"))
             if not files:

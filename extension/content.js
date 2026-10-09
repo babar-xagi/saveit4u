@@ -128,7 +128,9 @@
     } catch (error) {
       if (own !== token) return;
       title.textContent = "Video detection needs attention";
-      help.textContent = `${error.message} Use Detect again or open the dashboard to paste a YouTube link.`;
+      help.textContent = /YouTube verification required/.test(error.message)
+        ? "YouTube requires sign-in or verification. Open Download dashboard → YouTube sign-in, then Detect again."
+        : `${error.message} Use Detect again or open the dashboard to paste a YouTube link.`;
       retry.hidden = false;
       if (/Two videos|inspection is busy/.test(error.message) && inspectionRetries++ < 3) {
         help.textContent = "Finishing the previous video check. Trying this video again shortly…";

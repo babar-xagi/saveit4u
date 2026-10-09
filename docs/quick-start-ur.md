@@ -1,6 +1,6 @@
 # SaveIt4U — asaan setup
 
-**0.2.1 update:** agar dashboard par `charmap` error aa raha tha, naya EXE installer chalao. Yeh title aur caption-language metadata ki Windows encoding fix hai. Existing extension ID ya pairing badalne ki zaroorat nahi.
+**0.2.2 update:** YouTube verification ka saaf message aur optional sign-in flow add hai; `charmap` fix bhi included hai. Naya EXE install karo aur updated extension folder reload karo. Extension ID copy/paste nahi karni.
 
 1. **SaveIt4U Setup EXE kholo aur Install dabao.** Python, Node ya FFmpeg alag se install nahi karna. Koi command run nahi karni.
 2. **Open SaveIt4U dabao.** Desktop dashboard par shuru mein “Disconnected — waiting for extension” aa sakta hai.
@@ -18,3 +18,5 @@ Popup na aaye ya detection fail ho to “SaveIt4U” page button / “Detect aga
 Browser ya dashboard window band karne se background engine download karta rehta hai. Computer restart ke baad unfinished jobs resume kar sakte ho. Installer update active jobs ka continuation state save karta hai; tumhare khud paused kiye hue jobs automatically start nahi hote.
 
 Installer abhi unsigned private build hai. Chrome Web Store publication aur verified publisher code signing public release ke alag steps hain. Browser/Windows ki security warning ko automatically bypass nahi kiya jata.
+
+Agar **YouTube verification required** aaye: dashboard mein **YouTube sign-in (optional)** kholo, video ko YouTube par open karke sign-in/verification complete karo. Consent box tick karo, **Use YouTube sign-in** dabao aur browser permission allow karo. Video detection phir try hogi; failed download ke liye **Retry** dabao. Session sirf memory mein 20 minutes tak rehta hai. **Forget shared session** se sharing band kar sakte ho. YouTube phir bhi request restrict kar sakta hai.

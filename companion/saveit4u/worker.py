@@ -5,6 +5,7 @@ import sys
 
 from . import engine
 from .textio import configure_worker_streams, write_utf8
+from .errors import public_error
 
 
 def emit(value):
@@ -15,17 +16,17 @@ def main():
     configure_worker_streams(sys.stdin, sys.stdout, sys.stderr)
     try:
         stream = getattr(sys.stdin, "buffer", sys.stdin)
-        request = json.loads(stream.readline(32_768))
+        request = json.loads(stream.readline(100_000))
         if request["action"] == "inspect":
-            result = engine.inspect(request["url"], emit)
+            result = engine.inspect(request["url"], emit, cookies=request.get("cookies"))
         elif request["action"] == "download":
             result = engine.download(request["request"], request["folder"], emit,
-                                     output_folder=request.get("output_folder"), job_id=request.get("job_id"))
+                                     output_folder=request.get("output_folder"), job_id=request.get("job_id"), cookies=request.get("cookies"))
         else:
             raise ValueError("Unknown worker action.")
         emit({"type": "result", "result": result})
     except Exception as error:
-        emit({"type": "error", "error": str(error)[:2000]})
+        emit({"type": "error", "error": public_error(error)})
         return 1
     return 0
 
