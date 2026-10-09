@@ -45,7 +45,7 @@ def download_request(data: dict) -> dict:
     auto = data.get("auto_captions", True)
     if mode not in {"video", "audio", "transcript"}:
         raise ValueError("Choose video, audio or transcript.")
-    if not isinstance(quality, str) or quality not in QUALITIES:
+    if not isinstance(quality, str) or (quality != "best" and (not re.fullmatch(r"[1-9]\d{1,3}", quality) or not 72 <= int(quality) <= 8640)):
         raise ValueError("Unsupported quality.")
     if container not in {"mkv", "mp4"} or audio not in {"m4a", "mp3", "opus"}:
         raise ValueError("Unsupported media format.")

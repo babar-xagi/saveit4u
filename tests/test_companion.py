@@ -207,7 +207,7 @@ class QueueTests(unittest.TestCase):
     def test_restart_restores_paused_jobs_and_keeps_files(self):
         job = self.manager.enqueue({"url": URL})
         self.wait_for(lambda: len(self.processes) == 1)
-        partial = Path(job["folder"]) / "partial.part"
+        partial = Path(job["work_folder"]) / "partial.part"
         partial.write_bytes(b"partial content")
         self.manager.close()
         self.manager = Manager(lambda event: None, self.root / "state", worker_factory=self.worker)
@@ -217,6 +217,18 @@ class QueueTests(unittest.TestCase):
 
     def test_one_host_per_profile(self):
         with self.assertRaises(OSError): Store(self.root / "state")
+
+    def test_application_update_resumes_active_jobs_but_keeps_user_paused_jobs(self):
+        first = self.manager.enqueue({"url": URL})
+        self.wait_for(lambda: len(self.processes) == 1)
+        second = self.manager.enqueue({"url": URL, "mode": "audio"})
+        self.manager.control(second["id"], "pause")
+        self.manager.close(resume_active=True)
+        self.manager = Manager(lambda event: None, self.root / "state", worker_factory=self.worker)
+        self.wait_for(lambda: len(self.processes) == 2)
+        jobs = self.manager.snapshot()["jobs"]
+        self.assertEqual(jobs[1]["status"], "paused")
+        self.assertIn(jobs[0]["status"], {"queued", "downloading"})
 
     def test_rejects_relative_output_path(self):
         with self.assertRaises(ValueError): self.manager.configure("../escape")
@@ -238,6 +250,17 @@ class NativeHostTests(unittest.TestCase):
             Writer(buffer).send({"id": "invalid", "action": "execute_shell", "command": "whoami"})
             result = subprocess.run([sys.executable, "-u", "-m", "saveit4u.host"], input=buffer.getvalue(),
                                     capture_output=True, env=environment, timeout=20)
+            from saveit4u.ipc import request
+            request("shutdown", directory=Path(folder), start=False)
+            from saveit4u.storage import Store
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                try:
+                    owned = Store(folder)
+                    owned.close()
+                    break
+                except OSError:
+                    time.sleep(0.05)
             self.assertEqual(result.returncode, 0, result.stderr.decode())
             responses = io.BytesIO(result.stdout)
             hello = read_message(responses)

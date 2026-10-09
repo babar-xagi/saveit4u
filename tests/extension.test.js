@@ -18,7 +18,7 @@ test("rejects unsafe, spoofed and non-video URLs", () => {
 test("MV3 extension has local scripts, narrow permissions and existing icons", async () => {
   const manifest = JSON.parse(await readFile(new URL("../extension/manifest.json", import.meta.url)));
   assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual(manifest.permissions, ["nativeMessaging", "activeTab", "storage", "contextMenus"]);
+  assert.deepEqual(manifest.permissions, ["nativeMessaging", "activeTab", "storage", "contextMenus", "alarms"]);
   assert.equal(manifest.host_permissions, undefined);
   for (const path of Object.values(manifest.icons)) assert.ok((await readFile(new URL(`../extension/${path}`, import.meta.url))).length > 0);
   for (const path of ["app.js", "content.js", "background.js"]) {
@@ -32,24 +32,27 @@ function event() {
   return { listeners, addListener: callback => listeners.push(callback), fire: (...args) => listeners.forEach(callback => callback(...args)) };
 }
 
-test("native bridge authenticates senders, correlates replies and surfaces disconnects", async () => {
+test("native bridge authenticates senders, correlates replies and surfaces disconnects", async t => {
   const id = "a".repeat(32);
   const sent = [];
   const tabs = [];
   const broadcasts = [];
   const port = { onMessage: event(), onDisconnect: event(), postMessage: message => sent.push(message), disconnect() { this.onDisconnect.fire(); } };
   globalThis.chrome = {
-    runtime: { id, onMessage: event(), onInstalled: event(), getURL: path => `chrome-extension://${id}/${path}`,
+    runtime: { id, onMessage: event(), onInstalled: event(), onConnect: event(), onStartup: event(), getURL: path => `chrome-extension://${id}/${path}`,
       connectNative: name => { assert.equal(name, "com.saveit4u.downloader"); return port; },
       sendMessage: async message => { broadcasts.push(message); } },
     tabs: { create: async data => { tabs.push(data); } },
     contextMenus: { onClicked: event(), removeAll: callback => callback(), create() {} },
+    storage: { local: { set: async () => {} } },
+    alarms: { onAlarm: event(), create() {} },
   };
-  await import("../extension/background.js");
+  const module = await import("../extension/background.js");
+  t.after(() => { module.bridge.dispose(); delete globalThis.chrome; });
   const receive = chrome.runtime.onMessage.listeners[0];
   const page = { id, url: `chrome-extension://${id}/app.html`, tab: { id: 123 } };
-  const content = { id, url: canonical, tab: { id: 456 } };
-  assert.equal(receive({ action: "enqueue" }, content, () => assert.fail("Content script accessed native host")), false);
+  const content = { id, url: canonical, tab: { id: 456 }, frameId: 0 };
+  assert.equal(receive({ action: "configure" }, content, () => assert.fail("Content script accessed filesystem settings")), false);
   assert.equal(receive({ action: "hello" }, { ...page, id: "another-extension" }, () => assert.fail()), false);
   const response = new Promise(resolve => assert.equal(receive({ action: "hello" }, page, resolve), true));
   assert.equal(sent.length, 1);
@@ -61,8 +64,10 @@ test("native bridge authenticates senders, correlates replies and surfaces disco
   assert.deepEqual(await opened, { ok: true });
   assert.equal(new URL(tabs[0].url).searchParams.get("url"), canonical);
   const failure = new Promise(resolve => receive({ action: "inspect", url: canonical }, page, resolve));
+  await new Promise(resolve => setImmediate(resolve));
   chrome.runtime.lastError = { message: "Native host not found" };
   port.onDisconnect.fire();
-  assert.match((await failure).error, /Native host not found.*Setup/);
+  assert.match((await failure).error, /Native host not found/);
+  module.bridge.dispose();
   delete globalThis.chrome;
 });

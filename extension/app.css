@@ -123,4 +123,11 @@ footer { border-top: 1px solid var(--line); padding: 15px 24px; display: flex; j
 .local-dot { display: inline-block; width: 5px; height: 5px; background: var(--accent); border-radius: 50%; margin-right: 6px; }
 .version { color: #aabb98; margin-left: 3px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; clip: rect(0,0,0,0); overflow: hidden; white-space: nowrap; border: 0; }
+.monitor-strip { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin: 12px 0 2px; }
+.monitor-strip > div { background: var(--surface); border: 1px solid var(--line); padding: 12px; border-radius: 10px; min-width: 0; }
+.monitor-strip span { display: block; font-size: 8px; letter-spacing: 1px; color: var(--muted); }
+.monitor-strip strong { display: block; font-size: 13px; margin-top: 5px; overflow-wrap: anywhere; }
+.manager .monitor-strip { grid-template-columns: repeat(4,1fr); }
+.manager .monitor-strip strong { font-size: 17px; }
+@media(max-width:600px) { .manager .monitor-strip { grid-template-columns: repeat(2,1fr); } }
 @media (max-width: 600px) { .manager .shell { padding: 0 20px; } .manager h1 { font-size: 34px; } .manager .hero-arrow { opacity: .5; right: 0; font-size: 150px; top: 20px; } .manager .select-grid { grid-template-columns: 1fr 1fr; } .manager .caption-field { grid-column: 1 / -1; } .manager .feature-strip { gap: 16px; font-size: 10px; } }

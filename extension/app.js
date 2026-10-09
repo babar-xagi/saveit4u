@@ -9,6 +9,8 @@ let metadata = null;
 let ready = false;
 let inspecting = false;
 let inspectionToken = 0;
+let minutes = false;
+let network = { available: false, receive_rate: null };
 const jobs = new Map();
 const cards = new Map();
 
@@ -78,8 +80,10 @@ function updateChoices() {
   const oldQuality = $("quality").value;
   const heights = $("container").value === "mp4" ? metadata?.mp4_heights || [] : metadata?.heights || [];
   $("quality").replaceChildren(option("best", "Best available"));
-  for (const height of [2160, 1440, 1080, 720, 480, 360]) {
-    if (heights.includes(height)) $("quality").append(option(String(height), `Up to ${height}p${height === 2160 ? " · 4K" : ""}`));
+  for (const height of heights) {
+    const item = metadata?.qualities?.find(item => item.container === $("container").value && item.height === height);
+    const size = item?.size ? ` · ${item.estimated ? "~" : ""}${bytes(item.size)}` : "";
+    $("quality").append(option(String(height), `${item?.label || height + "p"}${size}`));
   }
   if ([...$("quality").options].some(item => item.value === oldQuality)) $("quality").value = oldQuality;
   const oldLanguage = $("language").value;
@@ -158,13 +162,13 @@ function renderJob(job) {
   card.title.textContent = job.title;
   card.status.textContent = ({ queued: "Queued", downloading: "Downloading", merging: "Merging streams", processing: "Processing media", complete: "Saved", paused: "Paused", failed: "Needs attention", cancelled: "Cancelled" })[job.status] || job.status;
   card.status.className = job.status;
-  card.rate.textContent = job.status === "downloading" ? `${bytes(job.speed)}/s${job.eta != null ? ` · ${duration(job.eta)} left` : ""}` : "";
+  card.rate.textContent = job.status === "downloading" ? `${rate(job.speed)}${job.eta != null ? ` · ${duration(job.eta)} left` : " · Calculating ETA"}` : "";
   if (Number.isFinite(job.percent)) card.progress.value = job.percent;
   else card.progress.removeAttribute("value");
   card.progress.hidden = ["complete", "cancelled", "failed"].includes(job.status);
   card.progress.setAttribute("aria-label", `${job.title}: ${card.status.textContent}`);
-  const type = job.request.mode === "video" ? `${job.request.container.toUpperCase()} · ${job.request.quality === "best" ? "Best quality" : `Up to ${job.request.quality}p`}` : job.request.mode === "audio" ? job.request.audio.toUpperCase() : "Transcript";
-  card.detail.textContent = job.status === "complete" ? `${type} · ${job.files.length} files saved · ${job.files.join(", ")}` : `${type} · ${bytes(job.downloaded)}${job.total ? ` / ${bytes(job.total)}` : ""}${job.stream ? ` · Stream ${job.stream}` : ""}`;
+  const type = job.request.mode === "video" ? `${job.request.container.toUpperCase()} · ${job.quality_label || (job.request.quality === "best" ? "Best quality" : `Up to ${job.request.quality}p`)}` : job.request.mode === "audio" ? job.request.audio.toUpperCase() : "Transcript";
+  card.detail.textContent = job.status === "complete" ? `${type} · ${job.files.length} files saved · ${job.files.join(", ")}` : `${type} · ${bytes(job.downloaded)}${job.total ? ` / ${job.total_estimated ? "~" : ""}${bytes(job.total)}` : " / estimating size"}`;
   card.warning.textContent = job.warning || "";
   card.warning.hidden = !job.warning;
   card.error.textContent = job.error || "";
@@ -197,6 +201,26 @@ function renderJob(job) {
 function updateCount() {
   $("queue-count").textContent = [...jobs.values()].filter(job => !["complete", "cancelled"].includes(job.status)).length;
   $("empty").hidden = jobs.size > 0;
+  renderMonitor();
+}
+
+function rate(value) { return `${bytes((value || 0) * (minutes ? 60 : 1))}/${minutes ? "min" : "s"}`; }
+
+function renderMonitor() {
+  const active = [...jobs.values()].find(job => job.status === "downloading");
+  $("monitor-speed").textContent = ready ? rate(active?.speed || 0) : "Unavailable";
+  $("monitor-data").textContent = active ? `${bytes(active.downloaded)} / ${active.total ? (active.total_estimated ? "~" : "") + bytes(active.total) : "Estimating"}` : "—";
+  $("monitor-eta").textContent = ready ? active?.eta != null ? duration(active.eta) : active ? "Calculating…" : "—" : "Unavailable";
+  $("monitor-network").textContent = ready && network.available ? rate(network.receive_rate) : "Unavailable";
+}
+
+function connectionStatus(value) {
+  ready = !!value.ready;
+  $("connection").textContent = value.state;
+  $("connection").className = `connection ${value.state === "Connected" ? "ready" : value.state === "Connection Error" ? "error" : ""}`;
+  $("connection-detail").textContent = value.message || "";
+  updateChoices();
+  renderMonitor();
 }
 
 function renderSnapshot(state) {
@@ -208,9 +232,7 @@ function renderSnapshot(state) {
 }
 
 function disconnected(message) {
-  ready = false;
-  $("connection").textContent = "Setup needed";
-  $("connection").className = "connection error";
+  connectionStatus({ state: "Connection Error", ready: false, message: message + " Reconnecting automatically." });
   $("dependencies").replaceChildren();
   updateChoices();
   if (message) notice(message, true);
@@ -222,9 +244,10 @@ async function connect() {
   try {
     const result = await request("hello");
     ready = result.ready;
-    $("connection").textContent = ready ? "● Companion ready" : "Dependencies missing";
-    $("connection").className = `connection ${ready ? "ready" : "error"}`;
+    connectionStatus({ state: ready ? "Connected" : "Connection Error", ready, message: ready ? "Connected automatically. Downloads continue in the desktop app." : "Reinstall SaveIt4U to repair missing components." });
     renderSnapshot(result);
+    network = result.network || network;
+    renderMonitor();
     $("dependencies").replaceChildren();
     const names = { yt_dlp: "yt-dlp", ejs: "YouTube JS solver", ffmpeg: "FFmpeg", ffprobe: "FFprobe", runtime: "JS runtime" };
     for (const [key, value] of Object.entries(result.dependencies)) {
@@ -233,7 +256,7 @@ async function connect() {
       $("dependencies").append(row);
     }
     updateChoices();
-    notice(ready ? "" : "Install the missing dependencies, then check the connection again.", !ready);
+    notice(ready ? "" : "Reinstall the desktop app to repair its bundled components.", !ready);
     if (!ready) panel("setup");
   } catch (error) { disconnected(error.message); panel("setup"); }
   finally { $("reconnect").disabled = false; }
@@ -257,9 +280,9 @@ on("use-tab", "click", useTab);
 on("expand", "click", () => chrome.runtime.sendMessage({ action: "open_manager", url: metadata?.url }));
 on("new-download", "click", () => panel("download"));
 on("reconnect", "click", connect);
-on("copy-id", "click", async () => { await navigator.clipboard.writeText(chrome.runtime.id); notice("Extension ID copied."); });
+on("open-desktop", "click", () => request("open_desktop"));
+on("speed-units", "click", () => { minutes = !minutes; $("speed-units").textContent = `Show MB/${minutes ? "s" : "min"}`; for (const job of jobs.values()) renderJob(job); renderMonitor(); });
 on("open-folder", "click", () => request("open_folder"));
-on("settings-form", "submit", async () => { renderSnapshot(await request("configure", { output_dir: $("output-dir").value })); notice("Folder saved for new downloads."); });
 on("clear", "click", async () => { renderSnapshot(await request("clear_finished")); notice("Finished history cleared. Your files are still on disk."); });
 on("download-form", "submit", async () => {
   if (!metadata || !ready || $("enqueue").disabled) return;
@@ -274,19 +297,19 @@ on("download-form", "submit", async () => {
 });
 
 if (globalThis.chrome?.runtime?.id) {
-  $("extension-id").textContent = chrome.runtime.id;
-  $("install-command").textContent = `.venv\\Scripts\\python.exe scripts\\register_host.py --extension-id ${chrome.runtime.id}`;
   chrome.runtime.onMessage.addListener(message => {
     if (message.source !== "companion") return;
     if (message.event === "job") renderJob(message.job);
     if (message.event === "disconnected") disconnected(message.error);
+    if (message.event === "connection") connectionStatus(message.connection);
+    if (message.event === "network") { network = message.network; renderMonitor(); }
+    if (message.event === "snapshot") { renderSnapshot(message.snapshot); network = message.snapshot.network || network; renderMonitor(); }
   });
   if (query.get("url")) {
     try { $("url").value = youtubeUrl(query.get("url")); } catch (error) { notice(error.message, true); }
   } else if (!fullView) useTab().catch(() => {});
   await connect();
+  if (ready && $("url").value) inspect().catch(error => notice(error.message, true));
 } else {
-  $("extension-id").textContent = "Available after loading the unpacked extension";
-  $("install-command").textContent = ".venv\\Scripts\\python.exe scripts\\register_host.py --extension-id YOUR_EXTENSION_ID";
   disconnected("Preview only. Load extension/ through your browser's extensions page to use SaveIt4U.");
 }

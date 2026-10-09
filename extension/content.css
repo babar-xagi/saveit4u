@@ -1,17 +1,10 @@
-#saveit4u-download-button {
+#saveit4u-page-tools {
   all: initial;
   position: fixed;
-  left: 24px;
-  bottom: 24px;
+  right: 20px;
+  bottom: 20px;
   z-index: 2147483647;
-  padding: 13px 19px;
-  border: 1px solid #b8f65d;
-  border-radius: 999px;
-  background: #18231b;
-  color: #d5ff98;
-  font: 700 14px/1.2 system-ui, sans-serif;
-  box-shadow: 0 4px 24px #0007;
-  cursor: pointer;
+  display: block;
+  max-width: calc(100vw - 32px);
 }
-#saveit4u-download-button:hover { background: #2c3c20; }
-#saveit4u-download-button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+#saveit4u-page-tools[hidden] { display: none !important; }

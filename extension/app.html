@@ -11,7 +11,7 @@
   <div class="shell">
     <header class="topbar">
       <a class="brand" href="app.html?view=manager" target="_blank" aria-label="SaveIt4U download manager"><span class="logo" aria-hidden="true">↓</span><span>saveit<span class="brand-accent">4u</span><small>YOUR LOCAL DOWNLOAD MANAGER</small></span></a>
-      <div class="top-actions"><span id="connection" class="connection">Connecting…</span><button id="expand" class="icon-button" title="Open full download manager" aria-label="Open full download manager">↗</button></div>
+      <div class="top-actions"><span id="connection" class="connection" role="status">Connecting</span><button id="expand" class="icon-button" title="Open full download manager" aria-label="Open full download manager">↗</button></div>
     </header>
     <nav class="navigation" aria-label="Main navigation">
       <button class="nav-item selected" data-panel="download" aria-selected="true">New download</button>
@@ -19,6 +19,9 @@
       <button class="nav-item" data-panel="setup" aria-selected="false">Setup</button>
     </nav>
     <main>
+      <p id="connection-detail" class="help" aria-live="polite">Connecting automatically to the desktop application…</p>
+      <div class="monitor-strip" aria-label="Live download and network monitoring"><div><span>DOWNLOAD SPEED</span><strong id="monitor-speed">0 MB/s</strong></div><div><span>DOWNLOADED / TOTAL</span><strong id="monitor-data">—</strong></div><div><span>TIME REMAINING</span><strong id="monitor-eta">—</strong></div><div title="Includes receive traffic from all applications and network interfaces"><span>SYSTEM RECEIVE</span><strong id="monitor-network">Measuring…</strong></div></div>
+      <button id="speed-units" class="text-button" type="button">Show MB/min</button>
       <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
       <section id="panel-download" class="panel">
         <div class="hero"><span class="eyebrow">SAVE IT. KEEP IT.</span><h1>A good video deserves<br>a place in your library.</h1><p>Videos, Shorts, audio & captions.<br class="popup-only"> Straight to your computer.</p><span class="hero-arrow" aria-hidden="true">↙</span></div>
@@ -46,20 +49,20 @@
       </section>
       <section id="panel-queue" class="panel" hidden>
         <div class="section-heading"><div><span class="eyebrow">YOUR LIBRARY, IN MOTION</span><h1>Download queue</h1></div><button id="clear" class="secondary">Clear finished</button></div>
-        <p class="help">One transfer at a time, with up to four parallel media fragments. Closing the popup keeps downloads running.</p>
+        <p class="help">Downloads run in the desktop app, with up to eight parallel media fragments. Closing the browser keeps downloads running.</p>
         <div id="jobs" class="jobs"></div>
         <div id="empty" class="empty"><span aria-hidden="true">↓</span><h2>Make room for something good.</h2><p>Add a video to start your download library.</p><button id="new-download" class="secondary">New download</button></div>
       </section>
       <section id="panel-setup" class="panel" hidden>
         <span class="eyebrow">A SMALL COMPANION. A BIG DIFFERENCE.</span><h1>Connect your computer</h1>
-        <p class="setup-intro">The extension chooses your downloads. The local companion saves files and merges high-quality video with audio.</p>
-        <ol class="setup-steps"><li><strong>Install the companion dependencies</strong><p>Install Python 3.11+ and Node 22+ or Deno 2.3+. On Windows x64, this command also installs a verified portable FFmpeg build.</p><code>powershell -ExecutionPolicy Bypass -File scripts/setup.ps1 -InstallFFmpeg</code></li><li><strong>Register this extension</strong><p>Your extension ID:</p><div class="copy-row"><code id="extension-id"></code><button id="copy-id" class="secondary" type="button">Copy</button></div><p>From the project folder, run:</p><code id="install-command"></code></li><li><strong>Check the connection</strong><p>Reconnect after installation or after updating dependencies.</p><button id="reconnect" class="primary">Check connection</button></li></ol>
-        <div id="dependencies" class="dependency-list"></div>
-        <form id="settings-form" class="settings"><label for="output-dir">Save new downloads to</label><div class="input-row"><input id="output-dir" placeholder="Absolute path to your download folder"><button class="secondary" type="submit">Save folder</button></div><p class="help">Existing jobs keep their original folders. Clearing history leaves files on disk.</p></form>
+        <p class="setup-intro">Install the SaveIt4U desktop app once. This extension finds it automatically—no commands, IDs or pairing codes.</p>
+        <ol class="setup-steps"><li><strong>Run the SaveIt4U installer</strong><p>Open the downloaded SaveIt4U Setup EXE and click Install. Everything needed is included.</p></li><li><strong>Keep this extension installed</strong><p>The app and extension connect automatically, regardless of which you install first. If the app was just installed, connection recovery may take a few seconds.</p></li><li><strong>Check your connection</strong><p>We reconnect automatically. You can also check immediately below.</p><button id="reconnect" class="primary">Check connection</button> <button id="open-desktop" class="secondary" type="button">Open desktop app</button></li></ol>
+        <details><summary class="help">Diagnostic details</summary><div id="dependencies" class="dependency-list"></div></details>
+        <div class="settings"><label for="output-dir">All new downloads save in this folder</label><input id="output-dir" readonly placeholder="Available after connection"><p class="help">Use “Choose download folder” in the desktop app to change it. Existing files are never overwritten.</p></div>
         <button id="open-folder" class="text-button">Open download folder ↗</button>
       </section>
     </main>
-    <footer><span><span class="local-dot"></span> Runs on your computer</span><span>SaveIt4U <span class="version">0.1</span></span></footer>
+    <footer><span><span class="local-dot"></span> Runs on your computer</span><span>SaveIt4U <span class="version">0.2</span></span></footer>
   </div>
 </body>
 </html>

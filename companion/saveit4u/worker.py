@@ -16,7 +16,8 @@ def main():
         if request["action"] == "inspect":
             result = engine.inspect(request["url"], emit)
         elif request["action"] == "download":
-            result = engine.download(request["request"], request["folder"], emit)
+            result = engine.download(request["request"], request["folder"], emit,
+                                     output_folder=request.get("output_folder"), job_id=request.get("job_id"))
         else:
             raise ValueError("Unknown worker action.")
         emit({"type": "result", "result": result})

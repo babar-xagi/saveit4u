@@ -12,19 +12,19 @@ import uuid
 from pathlib import Path
 
 from .storage import Store
+from .runtime import command, subprocess_environment
 from .validation import download_request, youtube_url
 
 ACTIVE = {"downloading", "processing", "merging", "queued"}
 TERMINAL = {"complete", "failed", "cancelled"}
+INSPECTIONS = set()
+INSPECTION_LOCK = threading.Lock()
 
 
 def spawn_worker(request):
-    environment = os.environ.copy()
-    package_root = str(Path(__file__).resolve().parents[1])
-    environment["PYTHONPATH"] = package_root + os.pathsep + environment.get("PYTHONPATH", "")
-    environment["PYTHONIOENCODING"] = "utf-8"
+    environment = subprocess_environment()
     kwargs = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {"start_new_session": True}
-    process = subprocess.Popen([sys.executable, "-u", "-m", "saveit4u.worker"],
+    process = subprocess.Popen(command("worker"),
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                text=True, encoding="utf-8", env=environment, **kwargs)
     process.stdin.write(json.dumps(request) + "\n")
@@ -56,6 +56,8 @@ def terminate_tree(process):
 
 def inspect_video(url):
     process = spawn_worker({"action": "inspect", "url": youtube_url(url)})
+    with INSPECTION_LOCK:
+        INSPECTIONS.add(process)
     try:
         # stdin was already closed by spawn_worker; communicate must not flush it.
         process.stdin = None
@@ -77,6 +79,15 @@ def inspect_video(url):
     finally:
         if process.poll() is None:
             terminate_tree(process)
+        with INSPECTION_LOCK:
+            INSPECTIONS.discard(process)
+
+
+def stop_inspections():
+    with INSPECTION_LOCK:
+        processes = list(INSPECTIONS)
+    for process in processes:
+        terminate_tree(process)
 
 
 class Manager:
@@ -88,10 +99,16 @@ class Manager:
         self.condition = threading.Condition(threading.RLock())
         self.running = None
         self.stopping = False
+        resume_jobs = set(self.state.pop("restart_jobs", []))
         for job in self.state["jobs"]:
+            if "work_folder" not in job and job["status"] != "complete":
+                job["work_folder"] = job["folder"]
+                job["folder"] = self.state["output_dir"]
             if job["status"] in ACTIVE:
                 job["status"] = "paused"
-                job["warning"] = "Browser connection ended. Resume to continue available partial files."
+                job["warning"] = "Download engine restarted. Resume to continue available partial files."
+            if job["id"] in resume_jobs and job["status"] == "paused":
+                job.update(status="queued", warning="Continuing after the application update.")
         self.store.save(self.state)
         self.thread = threading.Thread(target=self._run, name="download-queue", daemon=True)
         self.thread.start()
@@ -114,7 +131,7 @@ class Manager:
                 return job
         raise ValueError("Download not found.")
 
-    def enqueue(self, data):
+    def enqueue(self, data, metadata=None):
         request = download_request(data)
         with self.condition:
             if len(self.state["jobs"]) >= 100:
@@ -124,11 +141,15 @@ class Manager:
                 raise ValueError("This download is already in your queue.")
             job_id = uuid.uuid4().hex
             root = Path(self.state["output_dir"]).expanduser().resolve()
-            folder = root / job_id
-            folder.mkdir(parents=True, exist_ok=False)
-            job = {"id": job_id, "request": request, "title": "YouTube video", "status": "queued",
-                   "created": time.time(), "folder": str(folder), "files": [], "percent": None,
-                   "downloaded": 0, "total": 0, "speed": 0, "eta": None, "warning": "", "error": ""}
+            root.mkdir(parents=True, exist_ok=True)
+            work = self.store.directory / "work" / job_id
+            work.mkdir(parents=True, exist_ok=False)
+            variants = [item for item in (metadata or {}).get("qualities", []) if item["container"] == request["container"]] if request["mode"] == "video" else []
+            variant = next((item for item in variants if str(item["height"]) == request["quality"]), variants[0] if variants and request["quality"] == "best" else {})
+            job = {"id": job_id, "request": request, "title": (metadata or {}).get("title", "YouTube video"), "status": "queued",
+                   "created": time.time(), "folder": str(root), "work_folder": str(work), "files": [], "percent": None,
+                   "total_estimated": variant.get("estimated", True), "quality_label": variant.get("label", ""),
+                   "downloaded": 0, "total": variant.get("size") or 0, "speed": 0, "eta": None, "warning": "", "error": ""}
             self.state["jobs"].append(job)
             self._save()
             self._notify(job)
@@ -197,7 +218,9 @@ class Manager:
                     return
                 job = next(j for j in self.state["jobs"] if j["status"] == "queued")
                 try:
-                    process = self.worker_factory({"action": "download", "request": job["request"], "folder": job["folder"]})
+                    process = self.worker_factory({"action": "download", "request": job["request"],
+                                                   "folder": job.get("work_folder", job["folder"]),
+                                                   "output_folder": job["folder"], "job_id": job["id"]})
                 except Exception as error:
                     job.update(status="failed", error=str(error)[:2000])
                     self._save()
@@ -216,8 +239,10 @@ class Manager:
                         if getattr(process, "_saveit4u_stopped", False) or job["status"] not in ACTIVE:
                             continue
                         if item.get("type") == "progress":
-                            job.update({key: item[key] for key in ("percent", "downloaded", "total", "speed", "eta", "stream") if key in item})
+                            job.update({key: item[key] for key in ("percent", "downloaded", "total", "total_estimated", "speed", "eta", "stream") if key in item})
                             job["status"] = item.get("phase", "downloading")
+                            if job["status"] != "downloading":
+                                job.update(speed=0, eta=None)
                         elif item.get("type") == "metadata":
                             job["title"] = item["metadata"]["title"]
                         elif item.get("type") == "warning":
@@ -242,11 +267,19 @@ class Manager:
                 self.running = None
                 self._save()
                 self._notify(job)
+                if job["status"] == "complete" and job.get("work_folder"):
+                    work = Path(job["work_folder"]).resolve()
+                    expected = (self.store.directory / "work" / job["id"]).resolve()
+                    if work == expected and work.is_relative_to(self.store.directory.resolve()):
+                        import shutil
+                        shutil.rmtree(work, ignore_errors=True)
                 self.condition.notify_all()
 
-    def close(self):
+    def close(self, resume_active=False):
         with self.condition:
             self.stopping = True
+            if resume_active:
+                self.state["restart_jobs"] = [job["id"] for job in self.state["jobs"] if job["status"] in ACTIVE]
             for job in self.state["jobs"]:
                 if job["status"] in ACTIVE:
                     job.update(status="paused", speed=0, eta=None)

@@ -9,6 +9,14 @@ def data_directory():
     override = os.environ.get("SAVEIT4U_DATA_DIR")
     if override:
         return Path(override).resolve()
+    from .runtime import install_directory
+    portable_profile = install_directory() / "portable-data.json"
+    if portable_profile.is_file():
+        value = json.loads(portable_profile.read_text(encoding="utf-8"))["data_dir"]
+        path = Path(value)
+        if not path.is_absolute():
+            raise ValueError("Portable profile data_dir must be an absolute path.")
+        return path.resolve()
     if os.name == "nt":
         return Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "SaveIt4U"
     return Path.home() / ".local" / "share" / "saveit4u"

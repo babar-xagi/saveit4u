@@ -1,129 +1,95 @@
-# SaveIt4U
+# SaveIt4U 0.2
 
-A Chrome/Edge extension with a local Python download companion. Save individual YouTube videos and Shorts, their audio, and available caption tracks to your computer.
+A Windows desktop downloader and Chrome/Edge extension with automatic pairing, an on-video quality panel and a shared persistent download queue.
 
-**Stack:** plain JavaScript, Manifest V3, Python 3.11+, yt-dlp, FFmpeg/FFprobe, and Node 22+ or Deno 2.3+. No frontend build step or remote backend.
+## Install — no commands or extension IDs
 
-## What works
+1. Open **SaveIt4U-Setup-0.2.0.exe** and click **Install**. Python, FFmpeg/FFprobe, Node, yt-dlp and its YouTube solver are included.
+2. Click **Open SaveIt4U**. The desktop dashboard shows whether the extension is connected.
+3. Add the extension. The current private build provides `saveit4u-extension-0.2.0.zip`; extract it and use Chrome/Edge's **Developer mode → Load unpacked**. The desktop app's **Install / locate extension** button opens its included extension folder. There are no terminal commands or ID-copy steps. Browser installation itself requires the user's action.
+4. App and extension connect automatically, in either installation order. Connection states are **Connected**, **Disconnected**, **Connecting** and **Connection Error**, with automatic retries.
+5. Open a YouTube video or Short. The quality panel appears automatically. Choose a format and optional caption language, then click a quality to start downloading immediately.
 
-- Video with audio: highest available source quality in MKV, or H.264/AAC MP4 for broader playback compatibility. Resolution limits include 360p through 4K; **Best available** can use higher resolutions if the source provides them.
-- Audio: M4A, MP3, or Opus. Prefer matching source audio for M4A/Opus; convert when needed. MP3 uses V0 encoding.
-- Captions: choose an available language, prefer human captions, optionally allow automatic captions. Save original VTT plus timestamped TXT, SRT and JSON. Rolling automatic captions receive overlap deduplication; manual captions preserve repeated dialogue.
-- Persistent sequential queue, progress, transfer speed, per-stream progress, ETA, pause, resume, cancel, retry, and open-folder controls.
-- A YouTube/Shorts page button, context menu, toolbar popup, and full download manager.
-- Companion health checks and a Windows x64 portable FFmpeg installer with SHA-256 verification.
+Default output: `~/Downloads/SaveIt4U/`. All new finished files go directly into this one folder:
 
-## Windows quick start
-
-1. Install [Python 3.11+](https://www.python.org/downloads/) and [Node 22+](https://nodejs.org/en/download) or [Deno 2.3+](https://docs.deno.com/runtime/getting_started/installation/). Keep Python available as `python` in your terminal.
-2. From this project folder, run:
-
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts/setup.ps1 -InstallFFmpeg
-   ```
-
-   This creates `.venv`, installs the companion, and puts FFmpeg/FFprobe under `.tools/ffmpeg/bin`. It does not modify your system PATH. The portable build comes from [Gyan's Windows builds](https://www.gyan.dev/ffmpeg/builds/), a distributor linked by [FFmpeg's download page](https://ffmpeg.org/download.html). If FFmpeg and FFprobe are already on PATH, omit `-InstallFFmpeg`.
-
-3. Open `chrome://extensions` or `edge://extensions`, enable **Developer mode**, choose **Load unpacked**, and select this project's `extension` folder. Pin SaveIt4U to the toolbar.
-4. Copy its extension ID and register the local companion using the project virtual environment:
-
-   ```powershell
-   .venv\Scripts\python.exe scripts\register_host.py --extension-id YOUR_32_LETTER_EXTENSION_ID
-   ```
-
-   Registration uses your own user account; administrator privileges are unnecessary. Run the command again for an Edge ID, or repeat `--extension-id` to allow multiple IDs. Moving the project requires re-registration.
-
-5. Restart the browser if you installed Node/Deno or changed PATH. Open SaveIt4U → **Setup** → **Check connection**. All dependencies should show as available.
-6. Open a video or Short and click the page's **SaveIt4U** button, or open the toolbar popup. Find the video, choose the media type, quality, and caption language, and add it to the queue.
-
-Default output: `~/Downloads/SaveIt4U/<job-id>/`. Each job has its own folder to prevent filename collisions. Change the output folder in Setup; existing jobs retain their original destinations.
-
-If your existing `.venv` was interrupted during installation and lacks pip, delete only that project-local environment and recreate it with `python -m venv .venv`, or repair it with `python -m pip --python .venv install -e .`.
-
-## Linux / macOS development
-
-Install Python 3.11+, FFmpeg/FFprobe and a supported JS runtime with your package manager, then:
-
-```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -e .
-.venv/bin/python scripts/register_host.py --extension-id YOUR_32_LETTER_EXTENSION_ID
+```text
+SaveIt4U/
+  English Speaking Practice.mp4
+  English Speaking Practice (2).mp4
+  Python Tutorial.mkv
+  Python Tutorial.en.srt
+  Python Tutorial.en.txt
 ```
 
-Load `extension/` unpacked in Chrome/Chromium/Edge. The registration script writes user-scoped native manifests into the standard browser directories. These installer paths are implemented; platform-specific browser installation still needs verification on those operating systems. Firefox support is not included.
+Windows-invalid title characters are replaced and very long names are shortened. Matching titles receive numeric suffixes without overwriting existing files. Temporary streams and partial transfers live in the private application data folder, not per-video output subfolders. Existing 0.1 completed downloads retain their historical location; unfinished legacy jobs publish new finished output into the current main folder.
 
-## Design and security
+See the [Roman Urdu quick-start](docs/quick-start-ur.md).
+
+## Download experience
+
+- Video + original audio: MKV supports the highest available source quality, including 4K/8K when offered. MP4 selects compatible H.264/AAC tracks and can have a lower maximum resolution. No video upscaling or re-encoding is used for merging.
+- Audio: source-compatible M4A/Opus, or MP3 conversion.
+- Captions: available human or automatic caption languages. Export original VTT plus timestamped TXT, SRT and JSON. Manual dialogue preserves repeated lines; rolling automatic captions receive overlap cleanup.
+- The page panel lists actual available qualities and combined video/audio download sizes. Unknown sizes remain unknown; approximate bitrate-derived sizes have a `~` marker. Container output size can differ slightly after merging.
+- Both dashboards show download speed, downloaded/total bytes, ETA, progress and system receive rate. Speed can display per second or per minute. System receive uses OS-wide interface counters and includes other apps, adapters and VPN traffic.
+- Aggregate progress covers video and audio together. It does not reset when audio starts. Estimates update as real response sizes arrive; unknown totals show an indeterminate indicator.
+- Pause, resume, cancel, retry, folder selection and open-folder controls. Closing a browser port or dashboard does not stop the shared engine. A computer/engine restart restores unfinished jobs; installer updates resume jobs that were active, while preserving user-paused jobs.
+- Native port retries use bounded backoff and a Chrome alarm for worker recovery. A new engine reattaches existing browser bridges. Snapshot recovery restores the queue on reconnect.
+- Metadata requests are coalesced and cached briefly. Media transfers use 1 MB buffers and up to eight concurrent fragments, without an artificial speed limit. Actual speed depends on the connection, YouTube/CDN limits and the transport; ordinary progressive HTTP transfers are not falsely reported as eight-way ranged downloads.
+- Detection failure provides Detect again and a manual YouTube-link fallback. Active live streams, unavailable/authenticated content, DRM bypass, other video websites and speech-to-text generation are outside this release.
+
+## Automatic pairing and security
+
+The installer registers a fixed extension identity derived from the extension's public manifest key. It writes an exact native-origin allowlist for Chrome, Edge and Chromium under the current user's registry. It does not scan private browser profiles, use wildcard origins, or silently install a browser extension. [Chrome documents stable manifest identities](https://developer.chrome.com/docs/extensions/reference/manifest/key) and [native host registration](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging).
 
 ```mermaid
 flowchart LR
-    Y[YouTube page button] --> B[Extension service worker]
-    P[Popup / download manager] --> B
-    B <-->|Native messaging| H[Python companion]
-    H --> Q[Persistent queue]
-    Q --> W[Isolated yt-dlp worker]
-    W --> F[FFmpeg merge / conversion]
-    W --> T[VTT → SRT / TXT / JSON]
-    F --> D[Local job folder]
-    T --> D
+  P[YouTube quality panel] --> B[Extension bridge]
+  B <-->|Framed native messaging| H[Native host EXE]
+  H <-->|Authenticated named pipe| E[Shared download engine]
+  D[Desktop dashboard EXE] <-->|Same named pipe| E
+  E --> W[Isolated download worker]
+  W --> F[FFmpeg merge / caption export]
+  F --> O[One SaveIt4U output folder]
 ```
 
-The browser's [native messaging protocol](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging) connects the extension to the companion over stdin/stdout. No HTTP control server or public port is used. The registered manifest allows specific extension IDs, and the host verifies caller origins. Content scripts can open the manager but cannot invoke filesystem commands. The extension does not read browser cookies, passwords, or arbitrary browsing history.
+Production uses no HTTP control server or TCP listener. Per-user IPC is authenticated with a local random key and exchanges size-limited JSON bytes, never pickle. Browser bridges validate their caller origin. Content scripts may inspect/download only the current top-level YouTube video; filesystem settings and other controls require an extension page. A quality click must be a trusted browser event. Incoming URLs use exact HTTPS YouTube hosts and validated video IDs. There is no generic shell command API, cookie extraction, analytics or cloud upload.
 
-All incoming video URLs must be HTTPS links on an exact YouTube allowlist with a valid 11-character video ID. Tracking and playlist parameters are stripped. Media choices are validated enums; the companion offers no shell command API. Worker subprocesses use argument arrays. Titles render with `textContent`, and files use yt-dlp's sanitized names inside UUID job directories. Download URLs and complete extractor payloads are never sent to the UI.
+The installation payload and individual application files are SHA-256 verified. Installation uses a checked staging directory, rollback and current-user registration. Updates briefly enter maintenance mode so bridges and the GUI release old files and the engine saves continuation state. Same-volume output publication uses atomic, non-overwriting hardlinks; cross-volume/Windows exFAT publication stages a complete file before a non-overwriting move. Completed work files are cleaned up. Cancelled partials remain available in private work storage; clearing queue history retains finished output files.
 
-YouTube extraction uses installed [yt-dlp EJS](https://github.com/yt-dlp/yt-dlp/wiki/EJS) with a supported local JavaScript runtime. Runtime version checks run during health checks. Remote solver components are disabled. Video/audio merging follows [yt-dlp's FFmpeg integration](https://github.com/yt-dlp/yt-dlp#dependencies).
+## Public release requirements
 
-One native companion owns a queue at a time. Two browsers cannot simultaneously own the same queue; close the other browser connection before switching. Two metadata inspections can run concurrently. Media jobs run sequentially with up to four parallel fragments when the transport supports fragmentation.
+The EXE is an **unsigned private build**, and the extension is not yet published to Chrome Web Store or Edge Add-ons. Public distribution still needs publisher code signing and store submission. No browser or Windows security barrier is bypassed. For a store release, the developer must synchronize the store's assigned public key/ID in `identity.py` and `manifest.json` and rebuild the installer. This is a developer release step, not an end-user pairing step.
 
-## Resume and transcript behavior
+The installer currently supports Windows x64. Source development and the IPC backend also support Unix; no polished Linux/macOS installer is provided. Use the application for content you own or have permission to save. YouTube changes and regional/account restrictions can affect availability; tested operation is not a guarantee for every video or future change.
 
-- Closing the popup or manager leaves the service worker's native port connected, so downloads continue while the browser stays open. Closing the browser pauses unfinished jobs. Reopening restores paused jobs; explicitly resume them.
-- Pause terminates the worker process tree and retains `.part` files. Resume starts extraction again and uses available partial files. Servers and expiring YouTube URLs can prevent byte-perfect continuation. A pause during merging/conversion may need to repeat that stage.
-- Percentages and ETA refer to the current media stream. They can reset when downloading switches from video to audio. Final completion happens after merging/conversion and requested caption processing.
-- A caption download failure leaves successfully downloaded media intact, with a visible warning. A transcript-only failure fails the job.
-- Clearing finished history keeps downloaded files and partials on disk. Cancel also keeps partial files; remove them manually if no longer needed.
-- Available quality depends on the source. MP4 selects compatible H.264/AAC tracks and may have a lower maximum resolution than MKV. This app does not upscale media.
-- Existing captions are exported; speech-to-text generation, translation, playlist/batch imports, cookies/login, live-stream recording, DRM and access restriction bypass are not implemented. Use it for content you own or have permission to save.
+## Developer setup and builds
 
-## Updates and troubleshooting
-
-YouTube can change its endpoints and challenge requirements. No downloader can guarantee every video will always work. Keep the engine updated:
+End users use the EXE. Developers need Python 3.11+, a supported Node 22+ or Deno 2.3+ runtime, and FFmpeg/FFprobe. Source checkout:
 
 ```powershell
-.venv\Scripts\python.exe -m pip install --upgrade "yt-dlp[default]"
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -e ".[build]"
+.venv\Scripts\python.exe scripts\install_ffmpeg.py
+.venv\Scripts\python.exe scripts\register_host.py
 ```
 
-For an upstream fix available only in a development release, [yt-dlp documents its nightly channel](https://github.com/yt-dlp/yt-dlp#update):
-
-```powershell
-.venv\Scripts\python.exe -m pip install --upgrade --pre "yt-dlp[default]"
-```
-
-Close/reopen the browser after changing dependencies. If the companion is not found, check that registration used the **same virtual environment**, the extension ID is correct, and the project has not moved. If YouTube asks for sign-in or returns a rate-limit error, the job reports it; account/cookie support is outside this version.
-
-State lives in `%LOCALAPPDATA%/SaveIt4U/state.json` on Windows or `~/.local/share/saveit4u/state.json` elsewhere. If saved state becomes unreadable, the host reports its path without silently deleting history. `SAVEIT4U_DATA_DIR` can override this for an isolated developer profile.
-
-Unregister without deleting downloads:
-
-```powershell
-.venv\Scripts\python.exe scripts\register_host.py --extension-id YOUR_EXTENSION_ID --unregister
-```
-
-This removes all SaveIt4U registrations for the current user on the supported browser paths. Remove the extension separately from the browser extensions page.
-
-## Verification and packaging
+Registration discovers the release ID automatically. Load `extension/` unpacked. The portable FFmpeg downloader verifies the [Gyan build](https://www.gyan.dev/ffmpeg/builds/) linked by [FFmpeg](https://ffmpeg.org/download.html). The Windows build copies a supported Node executable from the build machine and includes that version's license. Keep bundled vendor licenses with distributions.
 
 ```powershell
 .venv\Scripts\python.exe -m unittest discover -s tests -v
-npm run check
 npm test
-.venv\Scripts\python.exe scripts\package_extension.py
+npm run check
+.venv\Scripts\python.exe scripts\build_windows.py
+.venv\Scripts\python.exe scripts\smoke_windows.py --live
 ```
 
-Python tests cover URL restrictions, framed Unicode messages, atomic persistence, process lifecycle, queue recovery, transcript timing, real yt-dlp format selection, and native-host subprocess communication. Media integration tests create a one-second local video/audio fixture, serve it on loopback, run real yt-dlp downloads and FFmpeg merging/conversion, and verify final streams with FFprobe. They skip when FFmpeg, FFprobe, yt-dlp or the JS runtime is missing. Only the extractor is replaced for those repeatable tests.
+Outputs: `dist/SaveIt4U-Setup-0.2.0.exe`, `dist/SaveIt4U/`, and `dist/saveit4u-extension-0.2.0.zip`. `build_windows.py --output-dir PATH` can create an isolated release while an older build is running. The manual **Windows installer** GitHub Actions workflow builds and checks downloadable artifacts without automatically publishing a release.
 
-Node tests cover URL normalization, extension permissions, native response correlation, sender restrictions and disconnect handling. CI runs on Windows and Linux; Linux installs FFmpeg for the media tests. Live YouTube behavior and Chrome/Edge native registration need manual smoke checks and can depend on network/region/account restrictions.
+`smoke_windows.py` installs into a private workspace test folder with browser registration disabled, strips system Node/Python/FFmpeg from PATH, checks bundled dependencies and exchanges real native frames with the frozen app. `--live` additionally inspects and downloads a short public YouTube fixture, exports captions, and verifies final audio/video streams with the bundled FFprobe.
 
-Packaging creates `dist/saveit4u-extension-0.1.0.zip`. Extract the ZIP before using **Load unpacked**. The local companion is installed separately; browser stores cannot install a native companion themselves. No store submission or publication is performed.
+For interactive integration checks, `scripts/workflow_server.py` is a **development-only loopback harness**. It runs the actual extension scripts against the real frozen native host through a browser transport adapter. The engine, native protocol, IPC, worker processes, network counters and file publication are real. The page explicitly identifies this adapter; the harness is never included in the extension or installer. `scripts/preview_server.py` is a separate, clearly marked simulated layout preview.
 
-See [the local verification record](docs/verification.md) for completed live and automated checks, and the remaining browser installation check. For an isolated, clearly marked UI demo, run `python scripts/preview_server.py` and open the loopback URL it prints. The demo uses simulated downloads and is never included in the extension package.
+Data: `%LOCALAPPDATA%/SaveIt4U/` on Windows, or `~/.local/share/saveit4u/` for source Unix development. `SAVEIT4U_DATA_DIR` supports isolated test profiles. A developer portable build may use an adjacent `portable-data.json` containing an absolute `data_dir`; this file is not part of a normal release.
+
+See [the verification record](docs/verification.md) for completed checks and their limits.

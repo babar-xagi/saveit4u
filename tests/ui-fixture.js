@@ -4,13 +4,14 @@
   const metadata = { id: "jNQXAC9IVRw", url: "https://www.youtube.com/watch?v=jNQXAC9IVRw",
     title: "Into the mountains: a weekend worth keeping", channel: "SAVEIT4U UI FIXTURE", duration: 412,
     heights: [2160, 1440, 1080, 720, 480], mp4_heights: [1080, 720, 480], is_live: false,
-    captions: [{ code: "en", name: "English", automatic: false }, { code: "ur", name: "Urdu", automatic: true }] };
+    captions: [{ code: "en", name: "English", automatic: false }, { code: "ur", name: "Urdu", automatic: true }],
+    qualities: [{ height: 2160, label: "2160p", container: "mkv", size: 155000000, estimated: true }, { height: 1080, label: "1080p", container: "mp4", size: 71000000, estimated: true }] };
   const state = { output_dir: "D:\\SaveIt4U-Demo", jobs: [] };
   const emit = message => listeners.forEach(listener => listener({ source: "companion", ...message }));
   window.chrome = { runtime: { id: "a".repeat(32), onMessage: { addListener: listener => listeners.push(listener) },
     sendMessage: async message => {
       if (message.action === "hello") return { ok: true, result: { ...structuredClone(state), ready: true, version: "UI fixture",
-        dependencies: { yt_dlp: "Simulated", ejs: "Simulated", ffmpeg: "Simulated", ffprobe: "Simulated", runtime: "Simulated" } } };
+        network: { available: true, receive_rate: 5100000 }, dependencies: { yt_dlp: "Simulated", ejs: "Simulated", ffmpeg: "Simulated", ffprobe: "Simulated", runtime: "Simulated" } } };
       if (message.action === "inspect") return { ok: true, result: structuredClone(metadata) };
       if (message.action === "enqueue") {
         const job = { id: crypto.randomUUID(), request: message.request, title: metadata.title, status: "downloading", created: Date.now(),

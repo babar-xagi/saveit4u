@@ -1,108 +1,117 @@
-"""Native messaging entry point. No network listener, browser cookies or shell API."""
+"""Native browser bridge to the shared desktop engine."""
 
 import concurrent.futures
-import json
 import os
-import re
 import sys
 import threading
-from pathlib import Path
+import uuid
 
-from . import __version__
-from .engine import health
-from .manager import Manager, inspect_video
+from .identity import allowed_origins
+from .ipc import request as rpc
+from .ipc import MaintenanceError
 from .protocol import Writer, read_message
+
+ACTIONS = {"hello", "inspect", "enqueue", "pause", "resume", "cancel", "configure", "clear_finished", "open_folder", "open_desktop"}
 
 
 def main():
+    origin = next((arg for arg in sys.argv[1:] if arg.startswith("chrome-extension://")), None)
+    if origin and origin not in allowed_origins():
+        print("This extension is not authorized for SaveIt4U.", file=sys.stderr)
+        return 1
     if os.name == "nt":
         import msvcrt
         msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
         msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
     writer = Writer(sys.stdout.buffer)
-    if len(sys.argv) > 1:
-        origin = sys.argv[1]
-        manifest_path = Path(__file__).resolve().parents[2] / ".native" / "com.saveit4u.downloader.json"
-        try:
-            origins = json.loads(manifest_path.read_text(encoding="utf-8"))["allowed_origins"]
-            if not re.fullmatch(r"chrome-extension://[a-p]{32}/", origin) or origin not in origins:
-                raise ValueError("Unregistered extension origin.")
-        except (OSError, ValueError, KeyError) as error:
-            print(f"Native host authorization failed: {error}", file=sys.stderr)
-            return 1
     disconnected = threading.Event()
+    client_id = uuid.uuid4().hex
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+    slots = threading.BoundedSemaphore(2)
+    monitor_thread = None
 
     def send(value):
-        if not disconnected.is_set():
-            try:
-                writer.send(value)
-            except OSError:
-                disconnected.set()
-            except ValueError as error:
-                try:
-                    writer.send({"id": value.get("id"), "ok": False,
-                                 "error": f"Companion response could not be sent: {error}. Clear finished history and retry."})
-                except OSError:
-                    disconnected.set()
-
-    try:
-        manager = Manager(send)
-    except (OSError, ValueError) as error:
-        send({"event": "fatal", "error": f"Cannot start companion: {error}"})
-        return 1
-    pool = concurrent.futures.ThreadPoolExecutor(max_workers=2)
-    inspect_slots = threading.BoundedSemaphore(2)
-
-    def respond(request):
-        request_id = request.get("id")
+        if disconnected.is_set():
+            return
         try:
-            action = request.get("action")
-            if action == "hello":
-                result = {"version": __version__, **health(), **manager.snapshot()}
-            elif action == "inspect":
-                result = inspect_video(request.get("url"))
-            elif action == "enqueue":
-                if not health()["ready"]:
-                    raise ValueError("Companion dependencies are missing. Complete setup before downloading.")
-                result = manager.enqueue(request.get("request"))
-            elif action in {"pause", "resume", "cancel"}:
-                result = manager.control(request.get("job_id"), action)
-            elif action == "configure":
-                result = manager.configure(request.get("output_dir"))
-            elif action == "clear_finished":
-                result = manager.clear_finished()
-            elif action == "open_folder":
-                result = manager.open_folder(request.get("job_id"))
-            else:
+            writer.send(value)
+        except OSError:
+            disconnected.set()
+        except ValueError as error:
+            writer.send({"id": value.get("id"), "ok": False, "error": str(error)})
+
+    def respond(message):
+        try:
+            action = message.get("action")
+            if action not in ACTIONS:
                 raise ValueError("Unknown companion command.")
-            send({"id": request_id, "ok": True, "result": result})
+            values = {key: message[key] for key in ("url", "request", "job_id", "output_dir") if key in message}
+            send({"id": message["id"], "ok": True, "result": rpc(action, **values)})
         except Exception as error:
-            send({"id": request_id, "ok": False, "error": str(error)[:2000]})
+            send({"id": message["id"], "ok": False, "error": str(error)[:2000]})
         finally:
-            if request.get("action") == "inspect":
-                inspect_slots.release()
+            if message.get("action") == "inspect":
+                slots.release()
+
+    def monitor():
+        previous = {}
+        output_dir = None
+        while not disconnected.is_set():
+            try:
+                try:
+                    state = rpc("heartbeat", client_id=client_id, origin=origin)
+                except ValueError:
+                    if disconnected.is_set():
+                        return
+                    state = rpc("attach", client_id=client_id, origin=origin)
+                send({"event": "network", "network": state["network"]})
+                for job in state["jobs"]:
+                    if previous.get(job["id"]) != job:
+                        send({"event": "job", "job": job})
+                ids = {job["id"] for job in state["jobs"]}
+                if set(previous) - ids or output_dir != state["output_dir"]:
+                    send({"event": "snapshot", "snapshot": state})
+                output_dir = state["output_dir"]
+                previous = {job["id"]: job for job in state["jobs"]}
+                send({"event": "engine_status", "ready": state["ready"]})
+            except MaintenanceError as error:
+                send({"event": "fatal", "error": str(error)})
+                disconnected.set()
+                return
+            except Exception as error:
+                send({"event": "engine_error", "error": str(error)[:500]})
+            disconnected.wait(1)
 
     try:
+        if origin:
+            rpc("attach", client_id=client_id, origin=origin)
+            monitor_thread = threading.Thread(target=monitor, name="native-events", daemon=True)
+            monitor_thread.start()
         while not disconnected.is_set():
-            request = read_message(sys.stdin.buffer)
-            if request is None:
+            message = read_message(sys.stdin.buffer)
+            if message is None:
                 break
-            request_id = request.get("id")
-            if not isinstance(request_id, str) or len(request_id) > 100:
-                send({"ok": False, "error": "Request requires a short string ID."})
+            if not isinstance(message.get("id"), str) or len(message["id"]) > 100:
+                send({"ok": False, "error": "Invalid request ID."})
                 continue
-            if request.get("action") == "inspect":
-                if inspect_slots.acquire(blocking=False):
-                    pool.submit(respond, request)
+            if message.get("action") == "inspect":
+                if slots.acquire(blocking=False):
+                    pool.submit(respond, message)
                 else:
-                    send({"id": request_id, "ok": False, "error": "Two inspections are already running. Try again shortly."})
+                    send({"id": message["id"], "ok": False, "error": "Video inspection is busy. Try again shortly."})
             else:
-                respond(request)
-    except (ValueError, EOFError, UnicodeError) as error:
-        print(f"Invalid native message: {error}", file=sys.stderr)
+                respond(message)
+    except (OSError, ValueError, EOFError, MaintenanceError) as error:
+        send({"event": "fatal", "error": str(error)[:1000]})
     finally:
         disconnected.set()
-        manager.close()
+        if monitor_thread:
+            monitor_thread.join(timeout=2)
+        if origin:
+            try:
+                rpc("detach", client_id=client_id, origin=origin, start=False)
+            except (OSError, ValueError, EOFError, MaintenanceError):
+                pass
         pool.shutdown(wait=True, cancel_futures=True)
     return 0
 
