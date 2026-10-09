@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SaveIt4U — Video & Transcript Manager",
   "description": "Save YouTube videos, Shorts, audio and available captions with a local download companion.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAltBYcTBbPUMmt+2ii8QrY08O08IMI57GTdLGtSY5xLZNK7pR1x0aLMttAQSehSBRC6yyUYIcCkE4TnGefeYixDN+K7+JTRQvbUYwPVpQPb3xvH2J0Z1AFCntWnWtdAbFWkcaoPN6q9cf4ePMnzojQ/RqWqndCTQixKBO5k1pMmz5UOg8WWW1nETl08vinXnvly8omU4s29fqrJ3dhMQlrJbaLZ0m1+rrLV5cR76KDzmbwdFKGuT+X8oYDVgpJDPmuKS5vYHTeO3E0rpmpimbfQple/FSr1lfjwo7uAmJeZ5efilcErKGfpXiWiUr+zGlp7Yx73Ou5snizXCCJPIZ+QIDAQAB",
   "minimum_chrome_version": "120",
   "permissions": ["nativeMessaging", "activeTab", "storage", "contextMenus", "alarms"],

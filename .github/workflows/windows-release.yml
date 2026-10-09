@@ -23,6 +23,6 @@ jobs:
         with:
           name: SaveIt4U-Windows
           path: |
-            dist/SaveIt4U-Setup-0.2.0.exe
-            dist/saveit4u-extension-0.2.0.zip
+            dist/SaveIt4U-Setup-*.exe
+            dist/saveit4u-extension-*.zip
           if-no-files-found: error

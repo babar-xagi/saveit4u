@@ -18,6 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "companion"))
 from saveit4u.identity import extension_id
+from saveit4u import __version__
 from saveit4u.protocol import Writer, read_message
 from saveit4u.ipc import exchange
 
@@ -26,13 +27,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release-dir", type=Path, default=ROOT / "dist")
     parser.add_argument("--live", action="store_true")
+    parser.add_argument("--inspect-url", action="append", default=[], help="Additional real metadata regression URLs")
     args = parser.parse_args()
     release = args.release_dir.resolve()
     test_root = ROOT / ".tmp" / f"release-smoke-{uuid.uuid4().hex}"
     test_root.mkdir(parents=True)
     application = test_root / "SaveIt4U"
     result_file = test_root / "install.json"
-    installer = release / "SaveIt4U-Setup-0.2.0.exe"
+    installer = release / f"SaveIt4U-Setup-{__version__}.exe"
     result = subprocess.run([str(installer), "--silent", "--no-register", "--install-dir", str(application), "--result-file", str(result_file)], timeout=120)
     assert result.returncode == 0, result_file.read_text()
     assert json.loads(result_file.read_text())["ok"]
@@ -78,6 +80,13 @@ def main():
         assert hello["connection"]["state"] == "Connected"
         command("configure", output_dir=str(output))
         report["native_connection"] = True
+        if args.inspect_url:
+            inspections = []
+            for url in args.inspect_url:
+                metadata = command("inspect", url=url)
+                assert metadata["qualities"], metadata
+                inspections.append({"id": metadata["id"], "title": metadata["title"], "caption_languages": len(metadata["captions"]), "qualities": len(metadata["qualities"])})
+            report["additional_inspections"] = inspections
         if args.live:
             url = "https://www.youtube.com/watch?v=jNQXAC9IVRw"
             metadata = command("inspect", url=url)

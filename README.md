@@ -1,12 +1,12 @@
-# SaveIt4U 0.2
+# SaveIt4U 0.2.1
 
 A Windows desktop downloader and Chrome/Edge extension with automatic pairing, an on-video quality panel and a shared persistent download queue.
 
 ## Install — no commands or extension IDs
 
-1. Open **SaveIt4U-Setup-0.2.0.exe** and click **Install**. Python, FFmpeg/FFprobe, Node, yt-dlp and its YouTube solver are included.
+1. Open **SaveIt4U-Setup-0.2.1.exe** and click **Install**. Python, FFmpeg/FFprobe, Node, yt-dlp and its YouTube solver are included.
 2. Click **Open SaveIt4U**. The desktop dashboard shows whether the extension is connected.
-3. Add the extension. The current private build provides `saveit4u-extension-0.2.0.zip`; extract it and use Chrome/Edge's **Developer mode → Load unpacked**. The desktop app's **Install / locate extension** button opens its included extension folder. There are no terminal commands or ID-copy steps. Browser installation itself requires the user's action.
+3. Add the extension. The current private build provides `saveit4u-extension-0.2.1.zip`; extract it and use Chrome/Edge's **Developer mode → Load unpacked**. The desktop app's **Install / locate extension** button opens its included extension folder. There are no terminal commands or ID-copy steps. Browser installation itself requires the user's action.
 4. App and extension connect automatically, in either installation order. Connection states are **Connected**, **Disconnected**, **Connecting** and **Connection Error**, with automatic retries.
 5. Open a YouTube video or Short. The quality panel appears automatically. Choose a format and optional caption language, then click a quality to start downloading immediately.
 
@@ -84,7 +84,9 @@ npm run check
 .venv\Scripts\python.exe scripts\smoke_windows.py --live
 ```
 
-Outputs: `dist/SaveIt4U-Setup-0.2.0.exe`, `dist/SaveIt4U/`, and `dist/saveit4u-extension-0.2.0.zip`. `build_windows.py --output-dir PATH` can create an isolated release while an older build is running. The manual **Windows installer** GitHub Actions workflow builds and checks downloadable artifacts without automatically publishing a release.
+Outputs: `dist/SaveIt4U-Setup-0.2.1.exe`, `dist/SaveIt4U/`, and `dist/saveit4u-extension-0.2.1.zip`. `build_windows.py --output-dir PATH` can create an isolated release while an older build is running. The manual **Windows installer** GitHub Actions workflow builds and checks downloadable artifacts without automatically publishing a release.
+
+0.2.1 fixes Windows frozen-worker `charmap` failures for Unicode titles and caption-language names, including English videos whose caption metadata contains “Māori”. Worker JSON and diagnostics now use explicit UTF-8, independent of the Windows console code page. Existing extension identity and pairing are unchanged; updating the desktop installer is sufficient to receive this fix.
 
 `smoke_windows.py` installs into a private workspace test folder with browser registration disabled, strips system Node/Python/FFmpeg from PATH, checks bundled dependencies and exchanges real native frames with the frozen app. `--live` additionally inspects and downloads a short public YouTube fixture, exports captions, and verifies final audio/video streams with the bundled FFprobe.
 

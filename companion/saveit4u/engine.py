@@ -14,6 +14,7 @@ from .transcript import export_transcript
 from .runtime import install_directory, resource_directory
 from .publication import publish, detach_published_files
 from .telemetry import TransferProgress, format_size
+from .textio import write_utf8
 from .validation import download_request, youtube_url
 
 
@@ -64,12 +65,12 @@ class Logger:
 
     def warning(self, message):
         if "specified to use impersonation" in str(message):
-            print(str(message), file=sys.stderr, flush=True)
+            write_utf8(sys.stderr, str(message) + "\n")
             return
         self.emit({"type": "warning", "message": str(message)[:1000]})
 
     def error(self, message):
-        print(str(message), file=sys.stderr, flush=True)
+        write_utf8(sys.stderr, str(message) + "\n")
 
 
 def base_options(emit):

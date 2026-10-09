@@ -4,15 +4,18 @@ import json
 import sys
 
 from . import engine
+from .textio import configure_worker_streams, write_utf8
 
 
 def emit(value):
-    print(json.dumps(value, ensure_ascii=False, allow_nan=False), flush=True)
+    write_utf8(sys.stdout, json.dumps(value, ensure_ascii=False, allow_nan=False) + "\n")
 
 
 def main():
+    configure_worker_streams(sys.stdin, sys.stdout, sys.stderr)
     try:
-        request = json.loads(sys.stdin.readline(32_768))
+        stream = getattr(sys.stdin, "buffer", sys.stdin)
+        request = json.loads(stream.readline(32_768))
         if request["action"] == "inspect":
             result = engine.inspect(request["url"], emit)
         elif request["action"] == "download":

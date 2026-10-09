@@ -1,5 +1,7 @@
 # SaveIt4U — asaan setup
 
+**0.2.1 update:** agar dashboard par `charmap` error aa raha tha, naya EXE installer chalao. Yeh title aur caption-language metadata ki Windows encoding fix hai. Existing extension ID ya pairing badalne ki zaroorat nahi.
+
 1. **SaveIt4U Setup EXE kholo aur Install dabao.** Python, Node ya FFmpeg alag se install nahi karna. Koi command run nahi karni.
 2. **Open SaveIt4U dabao.** Desktop dashboard par shuru mein “Disconnected — waiting for extension” aa sakta hai.
 3. **Chrome extension install karo.** Is private release mein ZIP extract karo. Chrome mein Extensions → Manage extensions → Developer mode → Load unpacked se extracted extension folder select karo. Desktop app ka “Install / locate extension” button included folder bhi khol deta hai. Chrome Web Store publication ke baad yeh step “Add to Chrome” ban jayega.

@@ -1,5 +1,15 @@
 # Verification — SaveIt4U 0.2, 2026-10-09
 
+## 0.2.1 Unicode hotfix
+
+- Reproduced the user's exact Windows frozen-worker error on `F6oHV3ARAVg`: `charmap` could not encode `\u0101` at position 5008 even with `PYTHONIOENCODING=utf-8` set.
+- The title was English. Its caption-language metadata included “Māori”; therefore English titles were also affected. The earlier English-only smoke fixture lacked this character and did not catch the regression.
+- Worker JSON now writes UTF-8 bytes directly. Library-facing worker streams are explicitly configured to UTF-8, incoming worker JSON reads the binary stream, and diagnostic messages also avoid locale-dependent text encoding.
+- **50 Python tests and 6 JavaScript tests passed**, including cp1252 text-wrapper regression cases for Urdu, Japanese, emoji, Māori caption names and Unicode diagnostics.
+- The rebuilt frozen worker successfully inspected the same affected English video under an explicit cp1252 parent setting, returning all 11 quality options and the intact Māori caption name.
+- The installed 0.2.1 EXE also passed the clean-PATH native smoke check: the affected English video returned 11 qualities and 157 caption languages, and a real video/audio download plus all four caption exports succeeded.
+- Stable extension identity is unchanged. Existing extension pairing is preserved when updating the desktop application.
+
 Test host: Windows 10 x64, Python 3.13.15, Node 24.19.0, yt-dlp 2026.8.19, EJS 0.8.0, psutil 7.2.2 and checksum-verified portable FFmpeg/FFprobe. Build tool: PyInstaller 6.22.3.
 
 ## Automated checks
