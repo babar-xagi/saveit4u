@@ -1,0 +1,10 @@
+{
+  "name": "saveit4u-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/extension.test.js",
+    "check": "node --check extension/background.js && node --check extension/app.js && node --check extension/content.js"
+  }
+}

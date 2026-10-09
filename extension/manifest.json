@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "SaveIt4U — Video & Transcript Manager",
+  "description": "Save YouTube videos, Shorts, audio and available captions with a local download companion.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "105",
+  "permissions": ["nativeMessaging", "activeTab", "storage", "contextMenus"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "action": {"default_popup": "app.html", "default_title": "SaveIt4U", "default_icon": {"16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png"}},
+  "icons": {"16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png"},
+  "content_scripts": [{"matches": ["https://www.youtube.com/*", "https://m.youtube.com/*"], "js": ["content.js"], "css": ["content.css"], "run_at": "document_idle"}],
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'"}
+}

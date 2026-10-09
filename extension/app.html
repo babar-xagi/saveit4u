@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SaveIt4U — Download manager</title>
+  <link rel="stylesheet" href="app.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="app.html?view=manager" target="_blank" aria-label="SaveIt4U download manager"><span class="logo" aria-hidden="true">↓</span><span>saveit<span class="brand-accent">4u</span><small>YOUR LOCAL DOWNLOAD MANAGER</small></span></a>
+      <div class="top-actions"><span id="connection" class="connection">Connecting…</span><button id="expand" class="icon-button" title="Open full download manager" aria-label="Open full download manager">↗</button></div>
+    </header>
+    <nav class="navigation" aria-label="Main navigation">
+      <button class="nav-item selected" data-panel="download" aria-selected="true">New download</button>
+      <button class="nav-item" data-panel="queue" aria-selected="false">Queue <span id="queue-count">0</span></button>
+      <button class="nav-item" data-panel="setup" aria-selected="false">Setup</button>
+    </nav>
+    <main>
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+      <section id="panel-download" class="panel">
+        <div class="hero"><span class="eyebrow">SAVE IT. KEEP IT.</span><h1>A good video deserves<br>a place in your library.</h1><p>Videos, Shorts, audio & captions.<br class="popup-only"> Straight to your computer.</p><span class="hero-arrow" aria-hidden="true">↙</span></div>
+        <form id="inspect-form" class="url-form">
+          <label for="url">YouTube link</label>
+          <div class="input-row"><input id="url" type="url" placeholder="https://youtube.com/watch?v=…" required autocomplete="off" spellcheck="false"><button id="inspect" class="primary" type="submit">Find video <span aria-hidden="true">→</span></button></div>
+          <button id="use-tab" class="text-button" type="button">Use current YouTube tab</button>
+        </form>
+        <div id="video" class="video-card" hidden>
+          <div class="video-heading"><span class="video-mark" aria-hidden="true">▶</span><div><span id="video-channel" class="eyebrow"></span><h2 id="video-title"></h2><p id="video-meta"></p></div></div>
+          <form id="download-form">
+            <fieldset class="mode-picker"><legend class="sr-only">Download type</legend><label><input type="radio" name="mode" value="video" checked><span>Video + audio</span></label><label><input type="radio" name="mode" value="audio"><span>Audio</span></label><label><input type="radio" name="mode" value="transcript"><span>Transcript</span></label></fieldset>
+            <div class="select-grid">
+              <label id="container-field">Video format<select id="container"><option value="mkv">MKV · maximum quality</option><option value="mp4">MP4 · H.264 compatible</option></select></label>
+              <label id="quality-field">Quality limit<select id="quality"><option value="best">Best available</option></select></label>
+              <label id="audio-field" hidden>Audio format<select id="audio"><option value="m4a">M4A · AAC</option><option value="mp3">MP3 · converted</option><option value="opus">Opus · efficient</option></select></label>
+              <label class="caption-field">Caption language<select id="language"><option value="">Without transcript</option></select></label>
+            </div>
+            <label class="checkbox"><input id="auto-captions" type="checkbox" checked> Include automatic captions when available</label>
+            <p id="format-help" class="help">Original quality with audio. Separate streams are merged locally.</p>
+            <button id="enqueue" class="primary download-button" type="submit"><span aria-hidden="true">↓</span> Add to download queue</button>
+          </form>
+        </div>
+        <div class="feature-strip"><span><i aria-hidden="true">◈</i> Original quality</span><span><i aria-hidden="true">≡</i> Timed transcripts</span><span><i aria-hidden="true">⌂</i> Local files</span></div>
+      </section>
+      <section id="panel-queue" class="panel" hidden>
+        <div class="section-heading"><div><span class="eyebrow">YOUR LIBRARY, IN MOTION</span><h1>Download queue</h1></div><button id="clear" class="secondary">Clear finished</button></div>
+        <p class="help">One transfer at a time, with up to four parallel media fragments. Closing the popup keeps downloads running.</p>
+        <div id="jobs" class="jobs"></div>
+        <div id="empty" class="empty"><span aria-hidden="true">↓</span><h2>Make room for something good.</h2><p>Add a video to start your download library.</p><button id="new-download" class="secondary">New download</button></div>
+      </section>
+      <section id="panel-setup" class="panel" hidden>
+        <span class="eyebrow">A SMALL COMPANION. A BIG DIFFERENCE.</span><h1>Connect your computer</h1>
+        <p class="setup-intro">The extension chooses your downloads. The local companion saves files and merges high-quality video with audio.</p>
+        <ol class="setup-steps"><li><strong>Install the companion dependencies</strong><p>Install Python 3.11+ and Node 22+ or Deno 2.3+. On Windows x64, this command also installs a verified portable FFmpeg build.</p><code>powershell -ExecutionPolicy Bypass -File scripts/setup.ps1 -InstallFFmpeg</code></li><li><strong>Register this extension</strong><p>Your extension ID:</p><div class="copy-row"><code id="extension-id"></code><button id="copy-id" class="secondary" type="button">Copy</button></div><p>From the project folder, run:</p><code id="install-command"></code></li><li><strong>Check the connection</strong><p>Reconnect after installation or after updating dependencies.</p><button id="reconnect" class="primary">Check connection</button></li></ol>
+        <div id="dependencies" class="dependency-list"></div>
+        <form id="settings-form" class="settings"><label for="output-dir">Save new downloads to</label><div class="input-row"><input id="output-dir" placeholder="Absolute path to your download folder"><button class="secondary" type="submit">Save folder</button></div><p class="help">Existing jobs keep their original folders. Clearing history leaves files on disk.</p></form>
+        <button id="open-folder" class="text-button">Open download folder ↗</button>
+      </section>
+    </main>
+    <footer><span><span class="local-dot"></span> Runs on your computer</span><span>SaveIt4U <span class="version">0.1</span></span></footer>
+  </div>
+</body>
+</html>

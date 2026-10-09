@@ -34,3 +34,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# native companion and local artifacts
+.venv/
+.native/
+.tmp/
+.tools/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+artifacts/
